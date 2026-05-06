@@ -1,0 +1,69 @@
+name: PyShield Security Pipeline
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+jobs:
+  security-scan:
+    name: Run Security Scans
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Create scans directory
+        run: mkdir -p scans
+
+      - name: Run Bandit SAST scan
+        run: |
+          bandit -r app -f json -o scans/bandit-report.json || true
+
+      - name: Run Safety dependency scan
+        run: |
+          safety check -r requirements.txt --json > scans/safety-report.json || true
+
+      - name: Build Docker image
+        run: |
+          docker build -t pyshield-demo:latest .
+
+      - name: Install Trivy
+        uses: aquasecurity/setup-trivy@v0.2.2
+
+      - name: Run Trivy container scan
+        run: |
+          trivy image --format json --output scans/trivy-report.json pyshield-demo:latest || true
+
+      - name: Upload scan reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: pyshield-scan-reports
+          path: scans/
+
+      - name: Run PyShield policy engine
+        run: |
+          python policy_engine.py
+
+  deploy:
+    name: Demo Deployment Step
+    runs-on: ubuntu-latest
+    needs: security-scan
+
+    steps:
+      - name: Deployment allowed
+        run: |
+          echo "Security checks passed. Deployment would continue here."

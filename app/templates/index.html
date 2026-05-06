@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>PyShield Demo App</title>
+</head>
+<body>
+    <h1>PyShield Vulnerable Demo Application</h1>
+
+    <p>This application intentionally contains vulnerabilities for DevSecOps scanning.</p>
+
+    <h2>Demo Endpoints</h2>
+    <ul>
+        <li><code>/user?name=admin</code> - SQL Injection demo</li>
+        <li><code>/ping?host=127.0.0.1</code> - Command Injection demo</li>
+        <li><code>/calculate?expr=2+2</code> - Unsafe eval demo</li>
+        <li><code>/download?file=sample.txt</code> - Path Traversal demo</li>
+        <li><code>/hash?value=password123</code> - Weak Hashing demo</li>
+    </ul>
+</body>
+</html>
