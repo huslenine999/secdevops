@@ -1,4 +1,4 @@
-#!/Users/huslenine/Downloads/pyshield/scanner-venv/bin/python3.11
+#!/Users/huslenine/Downloads/pyshield/scanner-venv/bin/python3
 import sys
 from bandit.cli.config_generator import main
 if __name__ == '__main__':

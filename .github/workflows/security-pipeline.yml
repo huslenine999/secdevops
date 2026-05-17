@@ -42,7 +42,7 @@ jobs:
           docker build -t pyshield-demo:latest .
 
       - name: Install Trivy
-        uses: aquasecurity/setup-trivy@v0.2.2
+        uses: aquasecurity/setup-trivy@v0.2.6
 
       - name: Run Trivy container scan
         run: |
