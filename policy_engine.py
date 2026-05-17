@@ -54,20 +54,29 @@ def analyze_bandit(report: Dict[str, Any]) -> Dict[str, Any]:
 
 def analyze_safety(report: Any) -> Dict[str, Any]:
     """
-    Supports common Safety JSON output shapes.
-    Safety versions may output either a list of vulnerabilities or a dictionary.
+    Supports Safety JSON output shapes from both 'check' and 'scan' commands.
     """
     vulnerabilities: List[Any] = []
 
-    if isinstance(report, list):
+    if not report:
+        return {
+            "tool": "Safety",
+            "total_issues": 0,
+            "blocking_issues": 0,
+            "status": "MISSING",
+            "examples": [],
+        }
+
+    # Handle 'safety scan' format
+    if isinstance(report, dict) and "vulnerabilities" in report:
+        vulnerabilities = report["vulnerabilities"]
+    # Handle older 'safety check' formats
+    elif isinstance(report, list):
         vulnerabilities = report
-    elif isinstance(report, dict):
-        if isinstance(report.get("vulnerabilities"), list):
-            vulnerabilities = report["vulnerabilities"]
-        elif isinstance(report.get("affected_packages"), dict):
-            for package_data in report["affected_packages"].values():
-                vulns = package_data.get("vulnerabilities", [])
-                vulnerabilities.extend(vulns)
+    elif isinstance(report, dict) and "affected_packages" in report:
+        for package_data in report["affected_packages"].values():
+            vulns = package_data.get("vulnerabilities", [])
+            vulnerabilities.extend(vulns)
 
     return {
         "tool": "Safety",
@@ -81,20 +90,28 @@ def analyze_safety(report: Any) -> Dict[str, Any]:
 def analyze_trivy(report: Dict[str, Any]) -> Dict[str, Any]:
     vulnerabilities = []
 
-    if report:
-        for result in report.get("Results", []):
-            for vulnerability in result.get("Vulnerabilities", []) or []:
-                severity = vulnerability.get("Severity", "").upper()
-                if severity in FAIL_ON_TRIVY_SEVERITIES:
-                    vulnerabilities.append({
-                        "target": result.get("Target"),
-                        "vulnerability_id": vulnerability.get("VulnerabilityID"),
-                        "package_name": vulnerability.get("PkgName"),
-                        "installed_version": vulnerability.get("InstalledVersion"),
-                        "fixed_version": vulnerability.get("FixedVersion"),
-                        "severity": severity,
-                        "title": vulnerability.get("Title"),
-                    })
+    if not report:
+        return {
+            "tool": "Trivy",
+            "total_issues": 0,
+            "blocking_issues": 0,
+            "status": "MISSING",
+            "examples": [],
+        }
+
+    for result in report.get("Results", []):
+        for vulnerability in result.get("Vulnerabilities", []) or []:
+            severity = vulnerability.get("Severity", "").upper()
+            if severity in FAIL_ON_TRIVY_SEVERITIES:
+                vulnerabilities.append({
+                    "target": result.get("Target"),
+                    "vulnerability_id": vulnerability.get("VulnerabilityID"),
+                    "package_name": vulnerability.get("PkgName"),
+                    "installed_version": vulnerability.get("InstalledVersion"),
+                    "fixed_version": vulnerability.get("FixedVersion"),
+                    "severity": severity,
+                    "title": vulnerability.get("Title"),
+                })
 
     return {
         "tool": "Trivy",
@@ -134,12 +151,16 @@ def main() -> int:
         print_result(result)
 
     failed_tools = [result["tool"] for result in results if result["status"] == "FAIL"]
+    missing_tools = [result["tool"] for result in results if result["status"] == "MISSING"]
 
     print("\n=== Final Decision ===")
 
-    if failed_tools:
+    if failed_tools or missing_tools:
         print("DEPLOYMENT BLOCKED")
-        print(f"Reason: Blocking security issues found by: {', '.join(failed_tools)}")
+        if failed_tools:
+            print(f"Reason: Blocking security issues found by: {', '.join(failed_tools)}")
+        if missing_tools:
+            print(f"Reason: Required scan reports missing for: {', '.join(missing_tools)}")
         return 1
 
     print("DEPLOYMENT ALLOWED")
