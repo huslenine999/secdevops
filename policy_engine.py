@@ -27,6 +27,15 @@ def load_json(path: Path) -> Any:
 
 
 def analyze_bandit(report: Dict[str, Any]) -> Dict[str, Any]:
+    if not report:
+        return {
+            "tool": "Bandit",
+            "total_issues": 0,
+            "blocking_issues": 0,
+            "status": "MISSING",
+            "examples": [],
+        }
+
     issues = report.get("results", []) if report else []
 
     high_issues = [
