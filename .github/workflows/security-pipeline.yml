@@ -59,6 +59,13 @@ jobs:
         run: |
           python policy_engine.py
 
+      - name: Add report to job summary
+        if: always()
+        run: |
+          if [ -f scans/report.md ]; then
+            cat scans/report.md >> $GITHUB_STEP_SUMMARY
+          fi
+
   deploy:
     name: Demo Deployment Step
     runs-on: ubuntu-latest

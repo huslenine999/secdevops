@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PyShield Security Report</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f4f7f6;
+        }
+        .header {
+            background-color: #2c3e50;
+            color: white;
+            padding: 20px;
+            border-radius: 8px 8px 0 0;
+            text-align: center;
+        }
+        .summary {
+            background-color: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 0 0 8px 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .decision {
+            font-size: 1.2em;
+            font-weight: bold;
+            padding: 15px;
+            border-radius: 5px;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .decision-fail {
+            background-color: #e74c3c;
+            color: white;
+        }
+        .decision-pass {
+            background-color: #2ecc71;
+            color: white;
+        }
+        .tool-card {
+            background-color: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            border-left: 5px solid #ccc;
+        }
+        .tool-card.FAIL {
+            border-left-color: #e74c3c;
+        }
+        .tool-card.PASS {
+            border-left-color: #2ecc71;
+        }
+        .tool-card.MISSING {
+            border-left-color: #f39c12;
+        }
+        h2 {
+            margin-top: 0;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .status-FAIL { background-color: #fadbd8; color: #c0392b; }
+        .status-PASS { background-color: #d4efdf; color: #27ae60; }
+        .status-MISSING { background-color: #fef9e7; color: #f39c12; }
+        
+        .issue-list {
+            margin-top: 15px;
+        }
+        .issue-item {
+            background-color: #f9f9f9;
+            border: 1px solid #eee;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+        }
+        .severity {
+            font-weight: bold;
+            text-transform: uppercase;
+            font-size: 0.8em;
+        }
+        .severity-HIGH, .severity-CRITICAL { color: #c0392b; }
+        .severity-MEDIUM { color: #d35400; }
+        .severity-LOW { color: #7f8c8d; }
+        
+        pre {
+            background-color: #eee;
+            padding: 10px;
+            overflow-x: auto;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+        .timestamp {
+            font-size: 0.8em;
+            color: #7f8c8d;
+            text-align: right;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>PyShield Security Scan Report</h1>
+    </div>
+
+    <div class="summary">
+        <div class="timestamp">Generated on: {{ timestamp }}</div>
+        
+        <div class="decision {{ 'decision-fail' if final_status == 'BLOCKED' else 'decision-pass' }}">
+            Final Decision: DEPLOYMENT {{ final_status }}
+        </div>
+
+        {% if reason %}
+        <p><strong>Reason:</strong> {{ reason }}</p>
+        {% endif %}
+
+        <h3>Tool Summary</h3>
+        <ul>
+            {% for result in results %}
+            <li>
+                <strong>{{ result.tool }}:</strong> 
+                <span class="status-badge status-{{ result.status }}">{{ result.status }}</span>
+                ({{ result.blocking_issues }} blocking issues out of {{ result.total_issues }} total)
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    {% for result in results %}
+    <div class="tool-card {{ result.status }}">
+        <h2>
+            {{ result.tool }} 
+            <span class="status-badge status-{{ result.status }}">{{ result.status }}</span>
+        </h2>
+        <p>Found <strong>{{ result.total_issues }}</strong> issues, <strong>{{ result.blocking_issues }}</strong> of which are blocking deployment.</p>
+
+        {% if result.examples %}
+        <div class="issue-list">
+            <h3>Top Issues:</h3>
+            {% for issue in result.examples %}
+            <div class="issue-item">
+                {% if result.tool == 'Bandit' %}
+                    <span class="severity severity-{{ issue.severity.upper() }}">{{ issue.severity }}</span>
+                    <strong>{{ issue.test_id }}</strong>: {{ issue.issue_text }}<br>
+                    <small>Location: {{ issue.filename }}:{{ issue.line_number }}</small>
+                {% elif result.tool == 'Safety' %}
+                    <span class="severity">Vulnerability</span>
+                    <strong>{{ issue.package_name }}</strong> ({{ issue.vulnerability_id }})<br>
+                    Affects version: {{ issue.affected_versions }}<br>
+                    Fixed in: {{ issue.fixed_versions or 'N/A' }}<br>
+                    <em>{{ issue.description }}</em>
+                {% elif result.tool == 'Trivy' %}
+                    <span class="severity severity-{{ issue.severity.upper() }}">{{ issue.severity }}</span>
+                    <strong>{{ issue.vulnerability_id }}</strong>: {{ issue.title or 'No title' }}<br>
+                    Package: {{ issue.package_name }} ({{ issue.installed_version }} -> {{ issue.fixed_version or 'N/A' }})<br>
+                    Target: {{ issue.target }}
+                {% else %}
+                    <pre>{{ issue | tojson(indent=2) }}</pre>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+    {% endfor %}
+
+    <footer style="text-align: center; margin-top: 40px; color: #7f8c8d; font-size: 0.8em;">
+        Generated by PyShield Policy Engine.
+    </footer>
+</body>
+</html>

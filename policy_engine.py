@@ -1,13 +1,20 @@
 import json
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List
 
+from jinja2 import Template
+
 SCAN_DIR = Path("scans")
+TEMPLATE_PATH = Path("app/templates/report_template.html")
 
 BANDIT_REPORT = SCAN_DIR / "bandit-report.json"
 SAFETY_REPORT = SCAN_DIR / "safety-report.json"
 TRIVY_REPORT = SCAN_DIR / "trivy-report.json"
+
+HTML_REPORT = SCAN_DIR / "report.html"
+MD_REPORT = SCAN_DIR / "report.md"
 
 FAIL_ON_BANDIT_SEVERITIES = {"MEDIUM", "HIGH"}
 FAIL_ON_SAFETY = True
@@ -38,7 +45,7 @@ def analyze_bandit(report: Dict[str, Any]) -> Dict[str, Any]:
 
     issues = report.get("results", []) if report else []
 
-    high_issues = [
+    blocking_issues = [
         issue for issue in issues
         if issue.get("issue_severity", "").upper() in FAIL_ON_BANDIT_SEVERITIES
     ]
@@ -46,8 +53,8 @@ def analyze_bandit(report: Dict[str, Any]) -> Dict[str, Any]:
     return {
         "tool": "Bandit",
         "total_issues": len(issues),
-        "blocking_issues": len(high_issues),
-        "status": "FAIL" if high_issues else "PASS",
+        "blocking_issues": len(blocking_issues),
+        "status": "FAIL" if blocking_issues else "PASS",
         "examples": [
             {
                 "severity": issue.get("issue_severity"),
@@ -56,7 +63,7 @@ def analyze_bandit(report: Dict[str, Any]) -> Dict[str, Any]:
                 "line_number": issue.get("line_number"),
                 "issue_text": issue.get("issue_text"),
             }
-            for issue in high_issues[:5]
+            for issue in (blocking_issues if blocking_issues else issues)[:5]
         ],
     }
 
@@ -87,12 +94,23 @@ def analyze_safety(report: Any) -> Dict[str, Any]:
             vulns = package_data.get("vulnerabilities", [])
             vulnerabilities.extend(vulns)
 
+    # Normalize examples for reporting
+    normalized_examples = []
+    for v in vulnerabilities:
+        normalized_examples.append({
+            "package_name": v.get("package_name") or v.get("package"),
+            "vulnerability_id": v.get("vulnerability_id") or v.get("advisory"),
+            "affected_versions": v.get("affected_versions") or v.get("version"),
+            "fixed_versions": v.get("fixed_versions") or v.get("fixed"),
+            "description": v.get("description") or v.get("reason", "No description provided."),
+        })
+
     return {
         "tool": "Safety",
         "total_issues": len(vulnerabilities),
         "blocking_issues": len(vulnerabilities) if FAIL_ON_SAFETY else 0,
         "status": "FAIL" if vulnerabilities and FAIL_ON_SAFETY else "PASS",
-        "examples": vulnerabilities[:5],
+        "examples": normalized_examples[:5],
     }
 
 
@@ -111,24 +129,61 @@ def analyze_trivy(report: Dict[str, Any]) -> Dict[str, Any]:
     for result in report.get("Results", []):
         for vulnerability in result.get("Vulnerabilities", []) or []:
             severity = vulnerability.get("Severity", "").upper()
-            if severity in FAIL_ON_TRIVY_SEVERITIES:
-                vulnerabilities.append({
-                    "target": result.get("Target"),
-                    "vulnerability_id": vulnerability.get("VulnerabilityID"),
-                    "package_name": vulnerability.get("PkgName"),
-                    "installed_version": vulnerability.get("InstalledVersion"),
-                    "fixed_version": vulnerability.get("FixedVersion"),
-                    "severity": severity,
-                    "title": vulnerability.get("Title"),
-                })
+            vulnerabilities.append({
+                "target": result.get("Target"),
+                "vulnerability_id": vulnerability.get("VulnerabilityID"),
+                "package_name": vulnerability.get("PkgName"),
+                "installed_version": vulnerability.get("InstalledVersion"),
+                "fixed_version": vulnerability.get("FixedVersion"),
+                "severity": severity,
+                "title": vulnerability.get("Title"),
+            })
+
+    blocking_issues = [v for v in vulnerabilities if v["severity"] in FAIL_ON_TRIVY_SEVERITIES]
 
     return {
         "tool": "Trivy",
         "total_issues": len(vulnerabilities),
-        "blocking_issues": len(vulnerabilities),
-        "status": "FAIL" if vulnerabilities else "PASS",
-        "examples": vulnerabilities[:5],
+        "blocking_issues": len(blocking_issues),
+        "status": "FAIL" if blocking_issues else "PASS",
+        "examples": (blocking_issues if blocking_issues else vulnerabilities)[:5],
     }
+
+
+def generate_reports(results: List[Dict[str, Any]], final_status: str, reason: str):
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    # Generate HTML Report
+    if TEMPLATE_PATH.exists():
+        template = Template(TEMPLATE_PATH.read_text())
+        html_content = template.render(
+            results=results,
+            final_status=final_status,
+            reason=reason,
+            timestamp=timestamp
+        )
+        HTML_REPORT.write_text(html_content)
+        print(f"[INFO] HTML report generated: {HTML_REPORT}")
+    else:
+        print(f"[WARN] Template not found at {TEMPLATE_PATH}, skipping HTML report.")
+
+    # Generate Markdown Report (useful for GitHub Job Summaries)
+    md_lines = [
+        "# PyShield Security Scan Summary",
+        f"**Generated on:** {timestamp}",
+        f"**Final Decision:** DEPLOYMENT {final_status}",
+        f"**Reason:** {reason}",
+        "",
+        "## Tool Results",
+        "| Tool | Status | Total Issues | Blocking Issues |",
+        "| --- | --- | --- | --- |",
+    ]
+    for r in results:
+        md_lines.append(f"| {r['tool']} | {r['status']} | {r['total_issues']} | {r['blocking_issues']} |")
+    
+    md_lines.append("\n---\n*Generated by PyShield Policy Engine*")
+    MD_REPORT.write_text("\n".join(md_lines))
+    print(f"[INFO] Markdown report generated: {MD_REPORT}")
 
 
 def print_result(result: Dict[str, Any]) -> None:
@@ -138,8 +193,8 @@ def print_result(result: Dict[str, Any]) -> None:
     print(f"Blocking Issues: {result['blocking_issues']}")
 
     if result["examples"]:
-        print("Examples:")
-        for example in result["examples"]:
+        print("Examples (First 2):")
+        for example in result["examples"][:2]:
             print(json.dumps(example, indent=2, ensure_ascii=False))
 
 
@@ -164,17 +219,24 @@ def main() -> int:
 
     print("\n=== Final Decision ===")
 
-    if failed_tools or missing_tools:
-        print("DEPLOYMENT BLOCKED")
-        if failed_tools:
-            print(f"Reason: Blocking security issues found by: {', '.join(failed_tools)}")
-        if missing_tools:
-            print(f"Reason: Required scan reports missing for: {', '.join(missing_tools)}")
-        return 1
+    final_status = "ALLOWED"
+    reason = "No blocking security issues found."
 
-    print("DEPLOYMENT ALLOWED")
-    print("Reason: No blocking security issues found.")
-    return 0
+    if failed_tools or missing_tools:
+        final_status = "BLOCKED"
+        reasons = []
+        if failed_tools:
+            reasons.append(f"Blocking security issues found by: {', '.join(failed_tools)}")
+        if missing_tools:
+            reasons.append(f"Required scan reports missing for: {', '.join(missing_tools)}")
+        reason = " | ".join(reasons)
+
+    print(f"DEPLOYMENT {final_status}")
+    print(f"Reason: {reason}")
+
+    generate_reports(results, final_status, reason)
+
+    return 1 if final_status == "BLOCKED" else 0
 
 
 if __name__ == "__main__":

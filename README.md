@@ -2,6 +2,14 @@
 
 PyShield is a DevSecOps demo project that automatically scans Python source code, dependencies, and Docker images before deployment.
 
+## Security Reports
+
+PyShield now generates visual reports after every scan:
+
+- **Console Output**: Concise summary in the terminal/logs.
+- **HTML Report**: `scans/report.html` - A beautiful, standalone dashboard for detailed review.
+- **Markdown Report**: `scans/report.md` - Optimized for GitHub Job Summaries and documentation.
+
 ## Core Flow
 
 Developer pushes code → GitHub Actions runs scans → Python policy engine checks results → deployment allowed or blocked
