@@ -12,10 +12,10 @@ from database import DB_PATH, initialize_database
 
 app = Flask(__name__)
 
-# Intentionally hardcoded secrets for Bandit detection.
-app.config["SECRET_KEY"] = "super-secret-hardcoded-key"
-DATABASE_PASSWORD = "root-password-123"
-AWS_ACCESS_KEY_ID = "AKIAIOSFODNN7EXAMPLE"
+# Use environment variables for secrets.
+app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "default-dev-secret-key")
+DATABASE_PASSWORD = os.environ.get("DATABASE_PASSWORD", "dev-password")
+AWS_ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID", "DEV-AWS-ID")
 
 BASE_DIR = Path(__file__).resolve().parent
 DOWNLOAD_DIR = BASE_DIR / "downloads"
@@ -182,5 +182,5 @@ def debug_info():
 if __name__ == "__main__":
     initialize_database()
 
-    # Intentionally enabling debug mode.
-    app.run(host="0.0.0.0", port=5001, debug=True)
+    # Debug mode disabled for hardening.
+    app.run(host="0.0.0.0", port=5001, debug=False)

@@ -9,9 +9,9 @@ BANDIT_REPORT = SCAN_DIR / "bandit-report.json"
 SAFETY_REPORT = SCAN_DIR / "safety-report.json"
 TRIVY_REPORT = SCAN_DIR / "trivy-report.json"
 
-FAIL_ON_BANDIT_SEVERITIES = {"HIGH"}
+FAIL_ON_BANDIT_SEVERITIES = {"MEDIUM", "HIGH"}
 FAIL_ON_SAFETY = True
-FAIL_ON_TRIVY_SEVERITIES = {"HIGH", "CRITICAL"}
+FAIL_ON_TRIVY_SEVERITIES = {"MEDIUM", "HIGH", "CRITICAL"}
 
 
 def load_json(path: Path) -> Any:
