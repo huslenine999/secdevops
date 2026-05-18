@@ -36,7 +36,7 @@ jobs:
 
       - name: Run Safety dependency scan
         run: |
-          safety check -r requirements.txt --json > scans/safety-report.json || true
+          safety check -r requirements.txt --save-json scans/safety-report.json || true
 
       - name: Build Docker image
         run: |

@@ -75,7 +75,7 @@ http://127.0.0.1:5000
 mkdir -p scans
 
 bandit -r app -f json -o scans/bandit-report.json || true
-safety check -r requirements.txt --json > scans/safety-report.json || true
+safety check -r requirements.txt --save-json scans/safety-report.json || true
 
 docker build -t pyshield-demo .
 trivy image --format json --output scans/trivy-report.json pyshield-demo || true
