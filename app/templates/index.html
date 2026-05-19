@@ -1,20 +1,419 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>PyShield Demo App</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PyShield | Security Control Center</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --secondary: #64748b;
+            --danger: #ef4444;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --background: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: var(--background);
+            color: var(--text-main);
+            margin: 0;
+            line-height: 1.5;
+        }
+
+        .navbar {
+            background-color: #1e293b;
+            color: white;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .navbar-brand {
+            font-size: 1.5rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1.5rem;
+        }
+
+        .hero {
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            color: white;
+            padding: 3rem;
+            border-radius: 1rem;
+            margin-bottom: 2rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero h1 {
+            margin: 0;
+            font-size: 2.5rem;
+            font-weight: 800;
+        }
+
+        .hero p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            max-width: 600px;
+            margin-top: 1rem;
+        }
+
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            border: 1px solid #e2e8f0;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+        }
+
+        .card-title {
+            font-weight: 700;
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .endpoint-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .endpoint-item {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .endpoint-item:last-child {
+            border-bottom: none;
+        }
+
+        .method {
+            font-size: 0.75rem;
+            font-weight: 800;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            background: #e2e8f0;
+            margin-right: 0.75rem;
+            min-width: 45px;
+            text-align: center;
+        }
+
+        .link {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 500;
+            font-family: monospace;
+        }
+
+        .link:hover {
+            text-decoration: underline;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.2s;
+            cursor: pointer;
+            border: none;
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #1d4ed8;
+        }
+
+        .badge {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.6rem;
+            border-radius: 1rem;
+            font-weight: 600;
+        }
+
+        .badge-danger { background: #fee2e2; color: #991b1b; }
+        .badge-warning { background: #fef3c7; color: #92400e; }
+
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 800;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        footer {
+            text-align: center;
+            padding: 3rem;
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+    </style>
 </head>
 <body>
-    <h1>PyShield Vulnerable Demo Application</h1>
+    <nav class="navbar">
+        <div class="navbar-brand">
+            🛡️ PyShield
+        </div>
+        <div>
+            <a href="/health" class="link" style="color: white; font-size: 0.875rem;">System Health</a>
+        </div>
+    </nav>
 
-    <p>This application intentionally contains vulnerabilities for DevSecOps scanning.</p>
+    <div class="container">
+        <div class="hero">
+            <h1>Security Control Center</h1>
+            <p>Welcome to the PyShield DevSecOps demonstration. This application is designed with intentional vulnerabilities to test and showcase automated security pipelines.</p>
+            <div style="margin-top: 2rem; display: flex; gap: 1rem; align-items: center;">
+                <a href="/report" class="btn btn-primary">View Security Report</a>
+                <button id="scanBtn" class="btn" style="background: #1e293b; color: white; border: 1px solid #334155;">
+                    <span id="btnText">🔄 Run Fresh Scan</span>
+                </button>
+            </div>
+        </div>
 
-    <h2>Demo Endpoints</h2>
-    <ul>
-        <li><code>/user?name=admin</code> - SQL Injection demo</li>
-        <li><code>/ping?host=127.0.0.1</code> - Command Injection demo</li>
-        <li><code>/calculate?expr=2+2</code> - Unsafe eval demo</li>
-        <li><code>/download?file=sample.txt</code> - Path Traversal demo</li>
-        <li><code>/hash?value=password123</code> - Weak Hashing demo</li>
-    </ul>
+        <h2 class="section-title">⚡ Threat Lab: Attack Simulator</h2>
+        <div class="card" style="background: #0f172a; color: #38bdf8; border: 1px solid #1e293b; font-family: 'JetBrains Mono', 'Fira Code', monospace; margin-bottom: 2rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; border-bottom: 1px solid #1e293b; padding-bottom: 1rem;">
+                <div style="font-weight: 800; display: flex; align-items: center; gap: 0.5rem;">
+                    <span style="color: #f43f5e;">●</span> TERMINAL_SESSION_01
+                </div>
+                <div style="display: flex; align-items: center; gap: 1rem;">
+                    <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.75rem; cursor: pointer;">
+                        <span style="color: #94a3b8;">WAF_DEFENSE</span>
+                        <input type="checkbox" id="wafToggle" style="width: 30px; height: 15px; cursor: pointer;">
+                    </label>
+                    <div class="badge" style="background: rgba(56, 189, 248, 0.1); color: #38bdf8; border: 1px solid #38bdf8;">ACTIVE_LISTENER</div>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 300px 1fr; gap: 1.5rem;">
+                <div style="border-right: 1px solid #1e293b; padding-right: 1.5rem;">
+                    <label style="display: block; font-size: 0.75rem; margin-bottom: 0.5rem; color: #94a3b8;">SELECT VECTOR</label>
+                    <select id="attackVector" style="width: 100%; background: #1e293b; color: white; border: 1px solid #334155; padding: 0.5rem; border-radius: 0.25rem; margin-bottom: 1rem;">
+                        <option value="sqli">SQL Injection (Bypass Auth)</option>
+                        <option value="rce">Command Injection (Remote Code Execution)</option>
+                        <option value="traversal">Path Traversal (Leak Secrets)</option>
+                    </select>
+
+                    <label style="display: block; font-size: 0.75rem; margin-bottom: 0.5rem; color: #94a3b8;">PAYLOAD CONFIG</label>
+                    <input type="text" id="payloadInput" value="' OR '1'='1" style="width: 100%; background: #1e293b; color: #facc15; border: 1px solid #334155; padding: 0.5rem; border-radius: 0.25rem; margin-bottom: 1.5rem; font-family: inherit;">
+
+                    <button id="launchBtn" class="btn" style="width: 100%; background: #f43f5e; color: white; justify-content: center;">
+                        🚀 LAUNCH ATTACK
+                    </button>
+                </div>
+
+                <div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: #94a3b8; margin-bottom: 0.5rem;">
+                        <span>CONSOLE_OUTPUT</span>
+                        <span id="targetStatus">TARGET: 127.0.0.1:5001</span>
+                    </div>
+                    <div id="terminal" style="background: #020617; height: 250px; padding: 1rem; border-radius: 0.5rem; overflow-y: auto; font-size: 0.875rem; line-height: 1.4; border: 1px solid #1e293b;">
+                        <div style="color: #64748b;">[SYSTEM] Initializing simulation environment...</div>
+                        <div style="color: #64748b;">[SYSTEM] Ready for input.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <h2 class="section-title">🧪 Vulnerable Endpoints</h2>
+        <div class="status-grid">
+            <div class="card">
+                <div class="card-title">💾 Database & Injection</div>
+                <div class="endpoint-list">
+                    <div class="endpoint-item">
+                        <span class="method">GET</span>
+                        <a href="/user?name=admin" class="link">/user?name=admin</a>
+                        <span class="badge badge-danger" style="margin-left: auto;">SQLi</span>
+                    </div>
+                    <div class="endpoint-item">
+                        <span class="method">GET</span>
+                        <a href="/ping?host=127.0.0.1" class="link">/ping?host=127.0.0.1</a>
+                        <span class="badge badge-danger" style="margin-left: auto;">RCE</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">⚙️ Logic & Processing</div>
+                <div class="endpoint-list">
+                    <div class="endpoint-item">
+                        <span class="method">GET</span>
+                        <a href="/calculate?expr=2+2" class="link">/calculate?expr=2+2</a>
+                        <span class="badge badge-danger" style="margin-left: auto;">Eval</span>
+                    </div>
+                    <div class="endpoint-item">
+                        <span class="method">POST</span>
+                        <span class="link">/load-profile</span>
+                        <span class="badge badge-danger" style="margin-left: auto;">Pickle</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">📂 Files & Hashing</div>
+                <div class="endpoint-list">
+                    <div class="endpoint-item">
+                        <span class="method">GET</span>
+                        <a href="/download?file=sample.txt" class="link">/download?file=sample.txt</a>
+                        <span class="badge badge-warning" style="margin-left: auto;">Traversal</span>
+                    </div>
+                    <div class="endpoint-item">
+                        <span class="method">GET</span>
+                        <a href="/hash?value=password123" class="link">/hash?value=password123</a>
+                        <span class="badge badge-warning" style="margin-left: auto;">MD5</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <h2 class="section-title">🛡️ Security Pipeline Status</h2>
+        <div class="card" style="border-left: 4px solid var(--danger);">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+                <div>
+                    <div class="card-title">Latest Scan: Blocked</div>
+                    <p style="margin: 0; color: var(--text-muted); font-size: 0.875rem;">The policy engine detected multiple high-severity vulnerabilities.</p>
+                </div>
+                <div class="badge badge-danger" style="padding: 0.5rem 1rem; font-size: 1rem;">FAIL</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const vectors = {
+            sqli: { payload: "' OR '1'='1", endpoint: '/user?name=' },
+            rce: { payload: "; cat /etc/passwd", endpoint: '/ping?host=127.0.0.1' },
+            traversal: { payload: "../../app/main.py", endpoint: '/download?file=' }
+        };
+
+        const terminal = document.getElementById('terminal');
+        const addLog = (text, color = '#38bdf8') => {
+            const line = document.createElement('div');
+            line.style.color = color;
+            line.innerHTML = `<span style="opacity: 0.5;">[${new Date().toLocaleTimeString()}]</span> ${text}`;
+            terminal.appendChild(line);
+            terminal.scrollTop = terminal.scrollHeight;
+        };
+
+        // WAF Toggle Logic
+        document.getElementById('wafToggle').addEventListener('change', async (e) => {
+            const response = await fetch('/toggle-waf', { method: 'POST' });
+            const result = await response.json();
+            const color = result.waf_enabled ? '#22c55e' : '#f43f5e';
+            const text = result.waf_enabled ? 'WAF_ARMED: Defense shields active.' : 'WAF_DISARMED: Systems vulnerable.';
+            addLog(text, color);
+        });
+
+        // Attack Launcher Logic
+        document.getElementById('attackVector').addEventListener('change', (e) => {
+            document.getElementById('payloadInput').value = vectors[e.target.value].payload;
+        });
+
+        document.getElementById('launchBtn').addEventListener('click', async () => {
+            const vectorKey = document.getElementById('attackVector').value;
+            const payload = document.getElementById('payloadInput').value;
+            
+            addLog(`Executing ${vectorKey.toUpperCase()} attack...`, '#facc15');
+            addLog(`Payload: ${payload}`, '#94a3b8');
+
+            try {
+                const url = vectors[vectorKey].endpoint + encodeURIComponent(payload);
+                const response = await fetch(url);
+                const status = response.status;
+                const data = await response.text();
+                
+                if (status === 403) {
+                    addLog('⛔ ATTACK_BLOCKED: Security policy intervention.', '#f43f5e');
+                    addLog('Reason: Malicious pattern identified by PyShield WAF.', '#f43f5e');
+                } else {
+                    addLog('Connection established. Receiving buffer...', '#22c55e');
+                    const resultContainer = document.createElement('pre');
+                    resultContainer.style.background = '#1e293b';
+                    resultContainer.style.padding = '0.5rem';
+                    resultContainer.style.marginTop = '0.5rem';
+                    resultContainer.style.color = '#e2e8f0';
+                    resultContainer.style.fontSize = '0.75rem';
+                    resultContainer.innerText = data.length > 500 ? data.substring(0, 500) + '... [TRUNCATED]' : data;
+                    terminal.appendChild(resultContainer);
+                    addLog('ATTACK_SUCCESS: Vulnerability confirmed.', '#f43f5e');
+                }
+            } catch (e) {
+                addLog(`CRITICAL_ERROR: ${e.message}`, '#f43f5e');
+            }
+        });
+
+        // Original Scan Logic
+        document.getElementById('scanBtn').addEventListener('click', async () => {
+            const btn = document.getElementById('scanBtn');
+            const text = document.getElementById('btnText');
+            
+            btn.disabled = true;
+            btn.style.opacity = '0.7';
+            text.innerText = '⌛ Scanning in progress...';
+
+            try {
+                const response = await fetch('/run-scan', { method: 'POST' });
+                const result = await response.json();
+                if (result.status === 'success') {
+                    text.innerText = '✅ Scan Complete!';
+                    setTimeout(() => {
+                        window.location.href = '/report';
+                    }, 1000);
+                } else {
+                    alert('Scan failed: ' + result.message);
+                    text.innerText = '❌ Scan Failed';
+                    btn.disabled = false;
+                }
+            } catch (e) {
+                alert('Error: ' + e);
+                text.innerText = '❌ Error';
+                btn.disabled = false;
+            }
+        });
+    </script>
+
+    <footer>
+        PyShield DevSecOps Demo &bull; 2026
+    </footer>
 </body>
 </html>

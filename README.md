@@ -63,36 +63,44 @@ This project intentionally includes vulnerabilities for security scanning and de
 
 ## Local Run
 
-```bash
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-python scripts/seed_db.py
-python app/main.py
-```
+1. **Setup Environment**:
+   ```bash
+   python3 -m venv venv
+   source venv/bin/activate
+   pip install -r requirements.txt
+   ```
 
-Open:
+2. **Initialize & Start**:
+   ```bash
+   python scripts/seed_db.py
+   python app/main.py
+   ```
 
-```txt
-http://127.0.0.1:5000
-```
+3. **Access the Dashboard**:
+   Open [http://127.0.0.1:5001](http://127.0.0.1:5001) in your browser.
 
-## Run Security Scans Locally
+## 🚀 Implementation Guide for Teams
 
-```bash
-mkdir -p scans
+You can adopt the PyShield pattern in your own projects by following these steps:
 
-bandit -r app -f json -o scans/bandit-report.json || true
-safety check -r requirements.txt --save-json scans/safety-report.json || true
+### 1. Integrate Security Scanners
+Add security tools to your `requirements-dev.txt` and run them as part of your build process:
+- **Bandit**: `bandit -r src/ -f json -o bandit-report.json`
+- **Safety**: `safety check -r requirements.txt --save-json safety-report.json`
 
-docker build -t pyshield-demo .
-trivy image --format json --output scans/trivy-report.json pyshield-demo || true
+### 2. Implement the Policy Engine
+Don't just look at tool outputs. Use a script like `policy_engine.py` to:
+- **Set Thresholds**: Decide which severity levels (e.g., HIGH/CRITICAL) should block a deployment.
+- **Fail Fast**: Return a non-zero exit code (`exit 1`) when a policy is violated to stop the CI/CD pipeline.
+- **Consolidate Reports**: Turn fragmented JSON data into a single, readable HTML dashboard for the team.
 
-python policy_engine.py
-```
+### 3. Automate with CI/CD
+Copy the logic from `.github/workflows/security-pipeline.yml` to ensure every Pull Request is automatically scanned before it can be merged.
+
+---
 
 ## Expected Behavior
+The policy engine is **configured to fail** by default in this repository because it intentionally contains dangerous vulnerabilities. This is to demonstrate how a "blocked" deployment looks and feels.
 
-The policy engine should fail because this repository intentionally contains dangerous vulnerabilities.
-
-This is for educational DevSecOps demonstration only.
+---
+*This project is for educational DevSecOps demonstration only.*

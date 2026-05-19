@@ -12,6 +12,42 @@ from database import DB_PATH, initialize_database
 
 app = Flask(__name__)
 
+# Global state for the WAF toggle (demo only)
+WAF_ENABLED = False
+
+@app.before_request
+def waf_middleware():
+    """
+    Simulated Web Application Firewall (WAF).
+    Blocks suspicious patterns if enabled.
+    """
+    global WAF_ENABLED
+    if not WAF_ENABLED:
+        return
+
+    # Simple pattern matching for common attacks
+    suspicious_patterns = [
+        "' OR '", "1=1", "--", "cat /etc/passwd", "../", "pickle.loads", "eval("
+    ]
+    
+    # Check query params and body
+    payload = str(request.args) + str(request.form) + str(request.data)
+    for pattern in suspicious_patterns:
+        if pattern in payload:
+            return jsonify({
+                "error": "Blocked by PyShield WAF",
+                "reason": f"Detected malicious pattern: {pattern}",
+                "status": "security_violation"
+            }), 403
+
+
+@app.route("/toggle-waf", methods=["POST"])
+def toggle_waf():
+    global WAF_ENABLED
+    WAF_ENABLED = not WAF_ENABLED
+    return jsonify({"status": "success", "waf_enabled": WAF_ENABLED})
+
+
 # Use environment variables for secrets.
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "default-dev-secret-key")
 DATABASE_PASSWORD = os.environ.get("DATABASE_PASSWORD", "dev-password")
@@ -28,6 +64,37 @@ sample_file.write_text("This is a safe sample file.\n")
 @app.route("/")
 def index():
     return render_template("index.html")
+
+
+@app.route("/report")
+def get_report():
+    """
+    Serves the latest security report.
+    """
+    report_path = Path(__file__).resolve().parent.parent / "scans" / "report.html"
+    if not report_path.exists():
+        return "<h1>Report not found</h1><p>Please run the security scans first.</p>", 404
+    return report_path.read_text()
+
+
+@app.route("/run-scan", methods=["POST"])
+def run_scan():
+    """
+    Triggers a fresh security scan using the policy engine.
+    """
+    try:
+        # Run the policy engine as a subprocess. 
+        # In a real app, this would be an async task/worker.
+        engine_path = Path(__file__).resolve().parent.parent / "policy_engine.py"
+        venv_python = Path(__file__).resolve().parent.parent / "scanner-venv" / "bin" / "python3"
+        
+        # If scanner-venv doesn't exist, fall back to current python
+        python_bin = str(venv_python) if venv_python.exists() else "python3"
+        
+        subprocess.run([python_bin, str(engine_path)], check=False)
+        return jsonify({"status": "success", "message": "Scan completed"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 @app.route("/health")
