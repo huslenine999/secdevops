@@ -1,4 +1,5 @@
 import json
+import os
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -6,7 +7,8 @@ from typing import Any, Dict, List
 
 from jinja2 import Template
 
-SCAN_DIR = Path("scans")
+# Use SCANS_DIR from environment if provided (useful for Vercel /tmp)
+SCAN_DIR = Path(os.environ.get("SCANS_DIR", "scans"))
 TEMPLATE_PATH = Path("app/templates/report_template.html")
 
 BANDIT_REPORT = SCAN_DIR / "bandit-report.json"

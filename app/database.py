@@ -1,7 +1,11 @@
 import sqlite3
+import os
 from pathlib import Path
 
-DB_PATH = Path(__file__).resolve().parent / "pyshield_demo.db"
+if os.environ.get("VERCEL"):
+    DB_PATH = Path("/tmp/pyshield_demo.db")
+else:
+    DB_PATH = Path(__file__).resolve().parent / "pyshield_demo.db"
 
 
 def get_connection():

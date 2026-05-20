@@ -58,11 +58,26 @@ DATABASE_PASSWORD = os.environ.get("DATABASE_PASSWORD", "dev-password")
 AWS_ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID", "DEV-AWS-ID")
 
 BASE_DIR = Path(__file__).resolve().parent
-DOWNLOAD_DIR = BASE_DIR / "downloads"
-DOWNLOAD_DIR.mkdir(exist_ok=True)
+PROJECT_ROOT = BASE_DIR.parent
+
+if os.environ.get("VERCEL"):
+    DOWNLOAD_DIR = Path("/tmp/downloads")
+    SCANS_DIR = Path("/tmp/scans")
+else:
+    DOWNLOAD_DIR = BASE_DIR / "downloads"
+    SCANS_DIR = PROJECT_ROOT / "scans"
+
+# Initialize directories and sample file safely
+DOWNLOAD_DIR.mkdir(exist_ok=True, parents=True)
+SCANS_DIR.mkdir(exist_ok=True, parents=True)
 
 sample_file = DOWNLOAD_DIR / "sample.txt"
-sample_file.write_text("This is a safe sample file.\n")
+if not sample_file.exists():
+    sample_file.write_text("This is a safe sample file.\n")
+
+# Initialize database if it doesn't exist (critical for Vercel /tmp)
+if not DB_PATH.exists():
+    initialize_database()
 
 
 @app.route("/")
@@ -75,7 +90,7 @@ def get_report():
     """
     Serves the latest security report.
     """
-    report_path = Path(__file__).resolve().parent.parent / "scans" / "report.html"
+    report_path = SCANS_DIR / "report.html"
     if not report_path.exists():
         return "<h1>Report not found</h1><p>Please run the security scans first.</p>", 404
     return report_path.read_text()
@@ -87,25 +102,23 @@ def run_scan():
     Triggers fresh security scans and then runs the policy engine.
     """
     try:
-        project_root = Path(__file__).resolve().parent.parent
-        scans_dir = project_root / "scans"
-        scans_dir.mkdir(exist_ok=True)
-        
         # Determine the python executable and tool paths.
         # Use current sys.executable to ensure we stay in the same venv.
         python_bin = sys.executable
         
         # Run Bandit (SAST)
-        bandit_cmd = [python_bin, "-m", "bandit", "-r", "app", "-f", "json", "-o", str(scans_dir / "bandit-report.json")]
-        subprocess.run(bandit_cmd, cwd=project_root, check=False)
+        bandit_cmd = [python_bin, "-m", "bandit", "-r", "app", "-f", "json", "-o", str(SCANS_DIR / "bandit-report.json")]
+        subprocess.run(bandit_cmd, cwd=PROJECT_ROOT, check=False)
         
         # Run Safety (SCA) - using 'check' which works with requirements.txt
-        safety_cmd = [python_bin, "-m", "safety", "check", "-r", "requirements.txt", "--save-json", str(scans_dir / "safety-report.json")]
-        subprocess.run(safety_cmd, cwd=project_root, check=False)
+        safety_cmd = [python_bin, "-m", "safety", "check", "-r", "requirements.txt", "--save-json", str(SCANS_DIR / "safety-report.json")]
+        subprocess.run(safety_cmd, cwd=PROJECT_ROOT, check=False)
         
         # Run the policy engine
-        engine_path = project_root / "policy_engine.py"
-        subprocess.run([python_bin, str(engine_path)], cwd=project_root, check=False)
+        engine_path = PROJECT_ROOT / "policy_engine.py"
+        # Pass SCANS_DIR to policy engine via environment variable if needed, 
+        # but policy_engine.py also needs to be updated.
+        subprocess.run([python_bin, str(engine_path)], cwd=PROJECT_ROOT, check=False, env={**os.environ, "SCANS_DIR": str(SCANS_DIR)})
         
         return jsonify({"status": "success", "message": "Scan completed and report generated."})
     except Exception as e:
