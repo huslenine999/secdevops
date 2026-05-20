@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="PyShield - Automated Security Report">
-    <title>PyShield | Security Diagnostics</title>
+    <meta name="description" content="Aegis - Automated Security Report">
+    <title>Aegis | Security Diagnostics</title>
     <!-- Retro Monospace Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -29,6 +29,31 @@
             --text-muted: #5da068;    /* Dark Greenish Slate */
             
             --border-primary: 1px solid var(--primary);
+
+            --canvas-opacity: 0.08;
+            --scanline-opacity: 0.3;
+        }
+
+        /* Reverse-Video Light Mode */
+        body.light-mode {
+            --bg-base: #3dfb57;       /* High-illumination Phosphor Green */
+            --bg-surface: rgba(6, 15, 8, 0.15);
+            --bg-console: #2cd644;
+            
+            --primary: #060a07;       /* Dark Green/Black text */
+            --primary-glow: rgba(6, 10, 7, 0.3);
+            
+            --secondary: #b06b00;     /* Darker Amber */
+            --secondary-glow: rgba(176, 107, 0, 0.3);
+            
+            --danger: #cc0000;        /* Deep Red */
+            --danger-glow: rgba(204, 0, 0, 0.3);
+            
+            --text-main: #060a07;
+            --text-muted: #1c3621;
+
+            --canvas-opacity: 0.18;
+            --scanline-opacity: 0.45;
         }
 
         body {
@@ -40,6 +65,7 @@
             overflow-x: hidden;
             min-height: 100vh;
             position: relative;
+            transition: background-color 0.3s ease, color 0.3s ease;
         }
 
         /* CRT Screen Simulation Overlays */
@@ -48,7 +74,7 @@
             display: block;
             position: fixed;
             top: 0; left: 0; bottom: 0; right: 0;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.3) 50%);
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, var(--scanline-opacity)) 50%);
             z-index: 9999;
             background-size: 100% 4px;
             pointer-events: none;
@@ -276,6 +302,7 @@
             font-weight: 700;
             border: 1px solid var(--primary);
             color: var(--primary);
+            text-transform: uppercase;
         }
 
         .tool-status.status-fail {
@@ -322,13 +349,6 @@
             background: var(--secondary);
         }
 
-        .finding-meta {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            margin-bottom: 0.5rem;
-        }
-
         .severity-badge {
             font-size: 0.7rem;
             padding: 0.15rem 0.35rem;
@@ -348,10 +368,22 @@
             border-color: var(--secondary);
         }
 
+        .finding-meta {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.5rem;
+            flex-wrap: wrap;
+        }
+
         .finding-title {
             font-size: 1rem;
             font-weight: 700;
             color: #fff;
+        }
+        
+        body.light-mode .finding-title {
+            color: var(--text-main);
         }
 
         .finding-location {
@@ -393,6 +425,26 @@
             box-shadow: 0 0 15px var(--primary-glow);
         }
 
+        /* Utility Toggle Buttons inside report navbar */
+        .btn-toggle {
+            background: rgba(6, 15, 8, 0.8);
+            border: 1px solid var(--secondary);
+            color: var(--secondary);
+            padding: 0.35rem 0.75rem;
+            font-size: 0.8rem;
+            cursor: pointer;
+            text-transform: uppercase;
+            font-family: 'Share Tech Mono', monospace;
+            border-radius: 2px;
+            transition: all 0.2s ease;
+        }
+
+        .btn-toggle:hover {
+            background: var(--secondary);
+            color: var(--bg-base);
+            box-shadow: 0 0 10px var(--secondary-glow);
+        }
+
         .timestamp {
             color: var(--primary);
             font-family: 'Share Tech Mono', monospace;
@@ -426,14 +478,16 @@
     <canvas id="bg-canvas"></canvas>
 
     <nav class="navbar">
-        <div class="navbar-brand">
+        <div class="navbar-brand" data-i18n="brand">
             [&nbsp;PYSHIELD_DIAGNOSTICS_REPORT&nbsp;]
         </div>
-        <div style="display: flex; align-items: center; gap: 1.5rem;">
+        <div style="display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap;">
+            <button id="langToggleBtn" class="btn-toggle">[ LANG: EN ]</button>
+            <button id="themeToggleBtn" class="btn-toggle">[ CRT: DARK ]</button>
             <div class="timestamp">
-                > COMPILED_ON: {{ timestamp }}
+                <span data-i18n="compiled_on">> COMPILED_ON:</span> {{ timestamp }}
             </div>
-            <a href="/" class="btn-back">
+            <a href="/" class="btn-back" data-i18n="return_btn">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M19 12H5M12 19l-7-7 7-7"/>
                 </svg>
@@ -446,8 +500,13 @@
         <!-- Decision Banner -->
         <div class="decision-banner {% if final_status == 'BLOCKED' %}status-blocked{% endif %} reveal">
             <div class="decision-content">
-                <h1 class="decision-title">DEPLOYMENT_{{ final_status }}</h1>
-                <p class="decision-reason">> CRITICAL_GATE_STATUS: {{ reason }}</p>
+                <h1 class="decision-title" id="decisionTitle" data-status="{{ final_status }}">
+                    {% if final_status == 'BLOCKED' %}DEPLOYMENT_BLOCKED{% else %}DEPLOYMENT_PASSED{% endif %}
+                </h1>
+                <p class="decision-reason">
+                    <span data-i18n="gate_status">> CRITICAL_GATE_STATUS:</span> 
+                    <span id="reasonText" data-raw-reason="{{ reason }}">{{ reason }}</span>
+                </p>
             </div>
         </div>
 
@@ -455,7 +514,7 @@
         <div class="metrics-grid reveal">
             <div class="metric-card">
                 <div class="metric-value">{{ results | length }}</div>
-                <div class="metric-label">Security Modules Run</div>
+                <div class="metric-label" data-i18n="metrics_modules">Security Modules Run</div>
             </div>
             <div class="metric-card">
                 <div class="metric-value">
@@ -465,7 +524,7 @@
                     {% endfor %}
                     {{ total_issues.val }}
                 </div>
-                <div class="metric-label">Total Vulnerabilities</div>
+                <div class="metric-label" data-i18n="metrics_vulns">Total Vulnerabilities</div>
             </div>
             <div class="metric-card">
                 <div class="metric-value">
@@ -475,18 +534,18 @@
                     {% endfor %}
                     {{ total_blocking.val }}
                 </div>
-                <div class="metric-label">Blocking Issues</div>
+                <div class="metric-label" data-i18n="metrics_blocking">Blocking Issues</div>
             </div>
         </div>
 
-        <h2 class="section-title reveal mono">> DETAILED_ANALYSIS_LOGS</h2>
+        <h2 class="section-title reveal mono" data-i18n="detailed_logs">> DETAILED_ANALYSIS_LOGS</h2>
 
         <!-- Loop through tool results -->
         {% for result in results %}
         <div class="tool-panel reveal">
             <div class="tool-header">
                 <div class="tool-name">{{ result.tool }}</div>
-                <div class="tool-status {% if result.status == 'FAIL' %}status-fail{% endif %}">
+                <div class="tool-status {% if result.status == 'FAIL' %}status-fail{% endif %}" data-tool-status="{{ result.status }}">
                     STATUS_{{ result.status }}
                 </div>
             </div>
@@ -496,7 +555,7 @@
                         <div class="finding-item {% if example.severity == 'HIGH' or example.severity == 'CRITICAL' %}severity-high{% elif example.severity == 'MEDIUM' %}severity-medium{% endif %}">
                             <div class="finding-meta">
                                 {% if example.severity %}
-                                <span class="severity-badge {% if example.severity == 'HIGH' or example.severity == 'CRITICAL' %}badge-high{% elif example.severity == 'MEDIUM' %}badge-medium{% endif %}">
+                                <span class="severity-badge {% if example.severity == 'HIGH' or example.severity == 'CRITICAL' %}badge-high{% elif example.severity == 'MEDIUM' %}badge-medium{% endif %}" data-severity="{{ example.severity }}">
                                     {{ example.severity }}
                                 </span>
                                 {% endif %}
@@ -510,28 +569,28 @@
                                     {% endif %}
                                 </span>
                             </div>
-                            <div class="finding-desc">
+                            <div class="finding-desc" data-tool="{{ result.tool }}">
                                 {% if result.tool == 'Bandit' %}
-                                    Defect ID: {{ example.test_id }} &bull; Source Code Violation detected.
+                                    <span data-i18n="defect_prefix">Defect ID:</span> {{ example.test_id }} &bull; <span data-i18n="violation_text">Source Code Violation detected.</span>
                                 {% elif result.tool == 'Safety' %}
-                                    Affected Versions: {{ example.affected_versions }} &bull; Fixed Versions: {{ example.fixed_versions }}<br>
-                                    Description: {{ example.description }}
+                                    <span data-i18n="affected_versions">Affected Versions:</span> {{ example.affected_versions }} &bull; <span data-i18n="fixed_versions">Fixed Versions:</span> {{ example.fixed_versions }}<br>
+                                    <span data-i18n="description_label">Description:</span> {{ example.description }}
                                 {% elif result.tool == 'Trivy' %}
-                                    Severity: {{ example.severity }} &bull; Title: {{ example.title or 'N/A' }}<br>
-                                    Target Package: {{ example.package_name }} (Installed: {{ example.installed_version }}, Fixed in: {{ example.fixed_version }})
+                                    <span data-i18n="severity_label">Severity:</span> <span data-severity="{{ example.severity }}">{{ example.severity }}</span> &bull; <span data-i18n="title_label">Title:</span> {{ example.title or 'N/A' }}<br>
+                                    <span data-i18n="target_pkg_label">Target Package:</span> {{ example.package_name }} (<span data-i18n="installed_label">Installed:</span> {{ example.installed_version }}, <span data-i18n="fixed_in_label">Fixed in:</span> {{ example.fixed_version }})
                                 {% endif %}
                             </div>
                             <div class="finding-location">
                                 {% if result.tool == 'Bandit' %}
-                                    > TARGET_FILE: {{ example.filename }} &bull; LINE_REF: {{ example.line_number }}
+                                    <span data-i18n="target_file_label">> TARGET_FILE:</span> {{ example.filename }} &bull; <span data-i18n="line_ref_label">LINE_REF:</span> {{ example.line_number }}
                                 {% elif result.tool == 'Trivy' %}
-                                    > TARGET: {{ example.target }}
+                                    <span data-i18n="target_label">> TARGET:</span> {{ example.target }}
                                 {% endif %}
                             </div>
                         </div>
                     {% endfor %}
                 {% else %}
-                    <div style="color: var(--text-muted); font-size: 0.9rem; font-style: italic;">
+                    <div style="color: var(--text-muted); font-size: 0.9rem; font-style: italic;" data-i18n="no_issues">
                         No issues detected by this scanner daemon.
                     </div>
                 {% endif %}
@@ -541,8 +600,8 @@
     </div>
 
     <footer>
-        <div class="mono" style="margin-bottom: 0.5rem; color: var(--primary);">PYSHIELD DIAGNOSTICS CONTROL PLANE</div>
-        <div>v2.0.0-tactical &bull; 2026 &bull; AUTOMATED SECDEVOPS COMPLIANCE REPORT</div>
+        <div class="mono" style="margin-bottom: 0.5rem; color: var(--primary);" data-i18n="footer_brand">AEGIS DIAGNOSTICS CONTROL PLANE</div>
+        <div data-i18n="footer_text">v2.0.0-tactical &bull; 2026 &bull; AUTOMATED SECDEVOPS COMPLIANCE REPORT</div>
     </footer>
 
     <!-- Animated Retro Scanning Grid Canvas -->
@@ -574,7 +633,9 @@
             requestAnimationFrame(animate);
             ctx.clearRect(0, 0, width, height);
 
-            ctx.strokeStyle = 'rgba(61, 251, 87, 0.08)';
+            // Fetch dynamic primary color from computed CSS
+            const primaryColor = getComputedStyle(document.body).getPropertyValue('--primary').trim();
+            ctx.strokeStyle = primaryColor === '#060a07' ? 'rgba(6, 10, 7, 0.15)' : 'rgba(61, 251, 87, 0.08)';
             ctx.lineWidth = 1;
 
             const cols = 26;
@@ -627,7 +688,7 @@
             }
 
             // Draw a faint green grid horizon sweep line
-            ctx.strokeStyle = 'rgba(61, 251, 87, 0.15)';
+            ctx.strokeStyle = primaryColor === '#060a07' ? 'rgba(6, 10, 7, 0.3)' : 'rgba(61, 251, 87, 0.15)';
             ctx.beginPath();
             ctx.moveTo(0, horizon);
             ctx.lineTo(width, horizon);
@@ -652,6 +713,193 @@
         }
         window.addEventListener("scroll", reveal);
         setTimeout(reveal, 100);
+    </script>
+
+    <!-- i18n Translation & Theme Script -->
+    <script>
+        const i18n = {
+            en: {
+                brand: "[ AEGIS_DIAGNOSTICS_REPORT ]",
+                compiled_on: "> COMPILED_ON:",
+                return_btn: "RETURN_TO_BASE",
+                gate_status: "> CRITICAL_GATE_STATUS:",
+                metrics_modules: "Security Modules Run",
+                metrics_vulns: "Total Vulnerabilities",
+                metrics_blocking: "Blocking Issues",
+                detailed_logs: "> DETAILED_ANALYSIS_LOGS",
+                no_issues: "No issues detected by this scanner daemon.",
+                footer_brand: "AEGIS DIAGNOSTICS CONTROL PLANE",
+                footer_text: "v2.0.0-tactical • 2026 • AUTOMATED SECDEVOPS COMPLIANCE REPORT",
+                
+                // Severity levels
+                high: "HIGH",
+                critical: "CRITICAL",
+                medium: "MEDIUM",
+                low: "LOW",
+                
+                // Status mapping
+                blocked: "DEPLOYMENT_BLOCKED",
+                passed: "DEPLOYMENT_PASSED",
+                
+                // Reasons mapping
+                reason_blocked: "Blocking security issues found by: Bandit",
+                reason_passed: "All scans passed. System safe for production.",
+
+                // Finding labels
+                defect_prefix: "Defect ID:",
+                violation_text: "Source Code Violation detected.",
+                affected_versions: "Affected Versions:",
+                fixed_versions: "Fixed Versions:",
+                description_label: "Description:",
+                severity_label: "Severity:",
+                title_label: "Title:",
+                target_pkg_label: "Target Package:",
+                installed_label: "Installed:",
+                fixed_in_label: "Fixed in:",
+                target_file_label: "> TARGET_FILE:",
+                line_ref_label: "LINE_REF:",
+                target_label: "> TARGET:"
+            },
+            ko: {
+                brand: "[ 이지스_보안_진단_보고서 ]",
+                compiled_on: "> 보고서_작성일:",
+                return_btn: "대시보드로_복귀",
+                gate_status: "> 심각한_게이트_상태:",
+                metrics_modules: "실행된 보안 모듈 수",
+                metrics_vulns: "총 발견된 취약점 수",
+                metrics_blocking: "차단 취약점 수",
+                detailed_logs: "> 상세_분석_로그",
+                no_issues: "탐지된 보안 취약점이 없습니다.",
+                footer_brand: "이지스 보안 진단 제어 평면",
+                footer_text: "v2.0.0-tactical • 2026 • 자동화된 SECDEVOPS 컴플라이언스 보고서",
+                
+                // Severity levels
+                high: "높음(HIGH)",
+                critical: "치명적(CRITICAL)",
+                medium: "중간(MEDIUM)",
+                low: "낮음(LOW)",
+                
+                // Status mapping
+                blocked: "배포_차단됨",
+                passed: "배포_승인됨",
+                
+                // Reasons mapping
+                reason_blocked: "차단 보안 결함 발견됨: Bandit",
+                reason_passed: "모든 보안 검사 통과. 안전하게 배포 가능합니다.",
+
+                // Finding labels
+                defect_prefix: "결함 ID:",
+                violation_text: "소스 코드 규칙 위반 감지됨.",
+                affected_versions: "영향을 받는 버전:",
+                fixed_versions: "패치된 버전:",
+                description_label: "상세 설명:",
+                severity_label: "심각도:",
+                title_label: "제목:",
+                target_pkg_label: "대상 패키지:",
+                installed_label: "설치된 버전:",
+                fixed_in_label: "패치 버전:",
+                target_file_label: "> 대상_파일:",
+                line_ref_label: "라인_참조:",
+                target_label: "> 대상:"
+            }
+        };
+
+        let currentLang = localStorage.getItem('lang') || 'en';
+        let currentTheme = localStorage.getItem('theme') || 'dark';
+
+        function setLanguage(lang) {
+            currentLang = lang;
+            localStorage.setItem('lang', lang);
+
+            // Update standard data-i18n items
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (i18n[lang][key]) {
+                    const svg = el.querySelector('svg');
+                    if (svg) {
+                        el.innerHTML = '';
+                        el.appendChild(svg);
+                        el.appendChild(document.createTextNode(' ' + i18n[lang][key]));
+                    } else {
+                        el.innerText = i18n[lang][key];
+                    }
+                }
+            });
+
+            // Update Toggles
+            document.getElementById('langToggleBtn').innerText = `[ LANG: ${lang.toUpperCase()} ]`;
+
+            // Translate Decision Banner Status
+            const titleEl = document.getElementById('decisionTitle');
+            if (titleEl) {
+                const status = titleEl.getAttribute('data-status');
+                if (status === 'BLOCKED') {
+                    titleEl.innerText = i18n[lang]['blocked'];
+                } else {
+                    titleEl.innerText = i18n[lang]['passed'];
+                }
+            }
+
+            // Translate Reason text
+            const reasonEl = document.getElementById('reasonText');
+            if (reasonEl) {
+                const rawReason = reasonEl.getAttribute('data-raw-reason');
+                if (rawReason.includes('Bandit')) {
+                    reasonEl.innerText = i18n[lang]['reason_blocked'];
+                } else if (rawReason.toLowerCase().includes('safe') || rawReason.toLowerCase().includes('pass')) {
+                    reasonEl.innerText = i18n[lang]['reason_passed'];
+                }
+            }
+
+            // Translate Status tags
+            document.querySelectorAll('[data-tool-status]').forEach(el => {
+                const status = el.getAttribute('data-tool-status');
+                if (status === 'FAIL') {
+                    el.innerText = lang === 'ko' ? '상태_실패' : 'STATUS_FAIL';
+                } else {
+                    el.innerText = lang === 'ko' ? '상태_통과' : 'STATUS_PASS';
+                }
+            });
+
+            // Translate Severity Badges
+            document.querySelectorAll('[data-severity]').forEach(el => {
+                const sev = el.getAttribute('data-severity');
+                if (sev === 'HIGH') {
+                    el.innerText = lang === 'ko' ? '높음(HIGH)' : 'HIGH';
+                } else if (sev === 'CRITICAL') {
+                    el.innerText = lang === 'ko' ? '치명적(CRITICAL)' : 'CRITICAL';
+                } else if (sev === 'MEDIUM') {
+                    el.innerText = lang === 'ko' ? '중간(MEDIUM)' : 'MEDIUM';
+                } else if (sev === 'LOW') {
+                    el.innerText = lang === 'ko' ? '낮음(LOW)' : 'LOW';
+                }
+            });
+        }
+
+        function setTheme(theme) {
+            currentTheme = theme;
+            localStorage.setItem('theme', theme);
+            if (theme === 'light') {
+                document.body.classList.add('light-mode');
+                document.getElementById('themeToggleBtn').innerText = '[ CRT: REVERSE ]';
+            } else {
+                document.body.classList.remove('light-mode');
+                document.getElementById('themeToggleBtn').innerText = '[ CRT: DARK ]';
+            }
+        }
+
+        // Setup switch event listeners
+        document.getElementById('langToggleBtn').addEventListener('click', () => {
+            setLanguage(currentLang === 'en' ? 'ko' : 'en');
+        });
+
+        document.getElementById('themeToggleBtn').addEventListener('click', () => {
+            setTheme(currentTheme === 'dark' ? 'light' : 'dark');
+        });
+
+        // Initialize state on page load
+        setLanguage(currentLang);
+        setTheme(currentTheme);
     </script>
 </body>
 </html>
