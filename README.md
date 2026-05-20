@@ -1,115 +1,110 @@
-# PyShield: Automated DevSecOps Pipeline for Python Applications
+# PyShield: Automated DevSecOps Pipeline & Retro CRT Security Console
 
-PyShield is a DevSecOps demo project that automatically scans Python source code, dependencies, and Docker images before deployment.
+PyShield is an interactive DevSecOps dashboard and policy scanner that automates security verification for Python applications, dependencies, and container images. It provides a visual demonstration of common vulnerability injections, live Web Application Firewall (WAF) mitigation controls, and automated policy scanning.
 
-## Security Reports
+---
 
-PyShield now generates visual reports after every scan:
+## 📺 The Retro CRT Phosphor Green Interface
 
-- **Console Output**: Concise summary in the terminal/logs.
-- **HTML Report**: `scans/report.html` - A beautiful, standalone dashboard for detailed review.
-- **Markdown Report**: `scans/report.md` - Optimized for GitHub Job Summaries and documentation.
+PyShield features a premium, immersive **90s Retro CRT Terminal** theme styled with glowing phosphor elements, scanlines, and vignette shadow overlays:
 
-## Core Flow
+* **3D Vanishing Grid Horizon**: The background features an animated HTML5 vector wireframe grid that scrolls forward and responds to mouse coordinates with elastic warp physics.
+* **Threat Lab Mainframe Simulator**: A CLI emulator shell that prints live stream stdout logs when SQL Injection, Directory Traversal, or Remote Code Execution (RCE) vectors are simulated against local endpoints.
+* **WAF Shield Control**: A toggle switch modeled as an analog hardware lever to dynamically shift the application status between `VULNERABLE` (raw bypasses allowed) and `ARMED_SHIELD` (WAF blocking active).
+* **Consolidated Security Reports**: Clean, monospace visual layout utilizing custom web fonts (`VT323` and `Share Tech Mono`) for readability under high-density diagnostic data.
 
-Developer pushes code → GitHub Actions runs scans → Python policy engine checks results → deployment allowed or blocked
+---
 
-## Tools Used
+## 🛡️ Core Architecture
 
-| Tool | Purpose |
-|---|---|
-| Bandit | Finds insecure Python code |
-| Safety | Checks vulnerable Python dependencies |
-| Trivy | Scans Docker images and containers |
-| Python Policy Engine | Reads scan results and decides Pass/Fail |
-| GitHub Actions | Automates the pipeline |
+```mermaid
+graph TD
+    Dev[Developer/Source Code] -->|Pushes Code| CI[CI/CD pipeline]
+    CI -->|Runs Bandit/Safety| Scan[Scanners]
+    Scan -->|Generates JSON logs| Engine[Policy Engine]
+    Engine -->|Parses Results| Decision{Deployment Blocked?}
+    Decision -->|Yes| Report[HTML Report generated]
+    Decision -->|No| Deploy[Ship to Production]
+```
 
-## Project Structure
+* **HTML Report**: `scans/report.html` - Visual tactical mainframe report with diagnostic details of bandit and library scanner findings.
+* **Markdown Report**: `scans/report.md` - Optimized for GitHub Job summaries.
+
+---
+
+## 📂 Project Structure
 
 ```txt
 pyshield/
 ├── app/
-│   ├── main.py
-│   ├── database.py
+│   ├── main.py                # Main Flask dashboard & vulnerability routes
+│   ├── secure_main.py         # Secure equivalent code (vulnerability fixes)
+│   ├── database.py            # Simulated SQLite database for persistent actions
 │   └── templates/
-│       └── index.html
+│       ├── index.html         # Main CRT terminal dashboard template
+│       └── report_template.html # CRT diagnostics report template
 ├── scripts/
-│   └── seed_db.py
+│   └── seed_db.py             # Pre-populates simulation database tables
 ├── scans/
-│   └── .gitkeep
-├── policy_engine.py
-├── requirements.txt
-├── Dockerfile
-├── .github/
-│   └── workflows/
-│       └── security-pipeline.yml
-└── README.md
+│   ├── report.html            # Compiled static scan output
+│   └── report.md              # Compiled markdown output
+├── tests/
+│   ├── test_policy.py         # Test suite for policy engine thresholds
+│   └── test_waf.py            # Test suite for Web Application Firewall rules
+├── policy_engine.py           # Evaluates scanner outputs against severity policies
+├── setup.sh                   # Automated environment build and startup script
+├── requirements.txt           # Production dependencies
+├── requirements-dev.txt       # Dev & scanning dependencies (pytest, bandit, safety, etc.)
+├── Dockerfile                 # Containerized image file
+└── README.md                  # Project documentation
 ```
 
-## Vulnerabilities Intentionally Included
+---
 
-This project intentionally includes vulnerabilities for security scanning and demonstration:
+## 🛠️ Getting Started
 
-- Hardcoded secret
-- SQL Injection
-- Command Injection
-- Unsafe `eval()`
-- Insecure deserialization with `pickle`
-- Path Traversal
-- Weak hashing with MD5
-- Debug mode enabled
-- Vulnerable/outdated Python dependencies
-- Potentially vulnerable Docker base image
-
-## Local Run
-
-### Option 1: Quick Setup (Recommended)
-Run the automated setup script to prepare the environment and start the application:
+### 1. Automated Setup & Run (Recommended)
+You can set up dependencies, configure the SQLite databases, and start the application in one command:
 ```bash
 chmod +x setup.sh
 ./setup.sh
 ```
 
-### Option 2: Manual Setup
-1. **Setup Environment**:
-   ```bash
-   python3 -m venv venv
-   source venv/bin/activate
-   pip install -r requirements.txt
-   pip install -r requirements-dev.txt
-   ```
+### 2. Manual Setup
+Activate a virtual environment and install packages:
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+pip install -r requirements-dev.txt
 
-2. **Initialize & Start**:
-   ```bash
-   python scripts/seed_db.py
-   python app/main.py
-   ```
+# Seed the database
+python scripts/seed_db.py
 
-3. **Access the Dashboard**:
-   Open [http://127.0.0.1:5001](http://127.0.0.1:5001) in your browser.
-
-## 🚀 Implementation Guide for Teams
-
-You can adopt the PyShield pattern in your own projects by following these steps:
-
-### 1. Integrate Security Scanners
-Add security tools to your `requirements-dev.txt` and run them as part of your build process:
-- **Bandit**: `bandit -r src/ -f json -o bandit-report.json`
-- **Safety**: `safety check -r requirements.txt --save-json safety-report.json`
-
-### 2. Implement the Policy Engine
-Don't just look at tool outputs. Use a script like `policy_engine.py` to:
-- **Set Thresholds**: Decide which severity levels (e.g., HIGH/CRITICAL) should block a deployment.
-- **Fail Fast**: Return a non-zero exit code (`exit 1`) when a policy is violated to stop the CI/CD pipeline.
-- **Consolidate Reports**: Turn fragmented JSON data into a single, readable HTML dashboard for the team.
-
-### 3. Automate with CI/CD
-Copy the logic from `.github/workflows/security-pipeline.yml` to ensure every Pull Request is automatically scanned before it can be merged.
+# Launch server
+python app/main.py
+```
+Open your browser to `http://127.0.0.1:5001`.
 
 ---
 
-## Expected Behavior
-The policy engine is **configured to fail** by default in this repository because it intentionally contains dangerous vulnerabilities. This is to demonstrate how a "blocked" deployment looks and feels.
+## 🧪 Testing
+
+PyShield includes pytest coverage for scanning policy rules and WAF intercept controls:
+```bash
+# Activate virtual environment
+source venv/bin/activate
+
+# Execute tests
+pytest
+```
 
 ---
-*This project is for educational DevSecOps demonstration only.*
+
+## 🚀 DevSecOps Implementation Workflow for Teams
+
+You can use the patterns shown in PyShield to strengthen security in your production pipelines:
+
+1. **Adopt Automated Code Linters**: Run tools like `bandit -r src/ -f json -o bandit-report.json` as a pre-commit hook or inside your PR tests.
+2. **Fail Fast with Policy Engines**: Use `policy_engine.py` to assert scan findings. Return `exit 1` to fail pipelines automatically when any `HIGH` or `CRITICAL` vulnerability is introduced.
+3. **Audit Third-Party Packages**: Run `safety check` to prevent outdated dependencies with known CVEs from reaching your production containers.
