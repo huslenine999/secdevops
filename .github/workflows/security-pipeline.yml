@@ -1,4 +1,4 @@
-name: PyShield Security Pipeline
+name: Aegis Security Pipeline
 
 on:
   push:
@@ -40,22 +40,22 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build -t pyshield-demo:latest .
+          docker build -t aegis-demo:latest .
 
       - name: Install Trivy
         uses: aquasecurity/setup-trivy@v0.2.6
 
       - name: Run Trivy container scan
         run: |
-          trivy image --format json --output scans/trivy-report.json pyshield-demo:latest || true
+          trivy image --format json --output scans/trivy-report.json aegis-demo:latest || true
 
       - name: Upload scan reports
         uses: actions/upload-artifact@v4
         with:
-          name: pyshield-scan-reports
+          name: aegis-scan-reports
           path: scans/
 
-      - name: Run PyShield policy engine
+      - name: Run Aegis policy engine
         run: |
           python policy_engine.py
 

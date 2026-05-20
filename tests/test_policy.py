@@ -36,7 +36,7 @@ def test_analyze_trivy_fail():
     report = {
         "Results": [
             {
-                "Target": "pyshield-demo:latest",
+                "Target": "aegis-demo:latest",
                 "Vulnerabilities": [
                     {"VulnerabilityID": "CVE-2024-0001", "Severity": "CRITICAL", "PkgName": "openssl", "InstalledVersion": "1.1.1", "FixedVersion": "1.1.1t", "Title": "Buffer overflow"}
                 ]

@@ -20,7 +20,7 @@ def test_waf_blocking(client):
     # Test SQLi blocking
     response = client.get('/user?name=admin\' OR \'1\'=\'1')
     assert response.status_code == 403
-    assert b"Blocked by PyShield WAF" in response.data
+    assert b"Blocked by Aegis WAF" in response.data
 
     # Test Command Injection blocking
     response = client.get('/ping?host=127.0.0.1; cat /etc/passwd')

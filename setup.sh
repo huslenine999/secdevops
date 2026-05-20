@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# PyShield Automated Setup Script
+# Aegis Automated Setup Script
 set -e
 
-echo "🛡️  Starting PyShield setup..."
+echo "🛡️  Starting Aegis setup..."
 
 # 1. Create virtual environment
 if [ ! -d "venv" ]; then
@@ -25,6 +25,6 @@ echo "[3/4] Initializing database..."
 python scripts/seed_db.py
 
 # 4. Run the application
-echo "[4/4] Setup complete! Starting PyShield..."
+echo "[4/4] Setup complete! Starting Aegis..."
 echo "Access the dashboard at http://127.0.0.1:5001"
 python app/main.py

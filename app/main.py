@@ -39,7 +39,7 @@ def waf_middleware():
     for pattern in suspicious_patterns:
         if pattern in payload:
             return jsonify({
-                "error": "Blocked by PyShield WAF",
+                "error": "Blocked by Aegis WAF",
                 "reason": f"Detected malicious pattern: {pattern}",
                 "status": "security_violation"
             }), 403
@@ -129,7 +129,7 @@ def run_scan():
 def health():
     return jsonify({
         "status": "running",
-        "service": "pyshield-vulnerable-demo"
+        "service": "aegis-vulnerable-demo"
     })
 
 

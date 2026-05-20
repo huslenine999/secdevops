@@ -1,12 +1,12 @@
-# PyShield: Automated DevSecOps Pipeline & Retro CRT Security Console
+# Aegis: Automated DevSecOps Pipeline & Retro CRT Security Console
 
-PyShield is an interactive DevSecOps dashboard and policy scanner that automates security verification for Python applications, dependencies, and container images. It provides a visual demonstration of common vulnerability injections, live Web Application Firewall (WAF) mitigation controls, and automated policy scanning.
+Aegis is an interactive DevSecOps dashboard and policy scanner that automates security verification for Python applications, dependencies, and container images. It provides a visual demonstration of common vulnerability injections, live Web Application Firewall (WAF) mitigation controls, and automated policy scanning.
 
 ---
 
 ## 📺 The Retro CRT Phosphor Green Interface
 
-PyShield features a premium, immersive **90s Retro CRT Terminal** theme styled with glowing phosphor elements, scanlines, and vignette shadow overlays:
+Aegis features a premium, immersive **90s Retro CRT Terminal** theme styled with glowing phosphor elements, scanlines, and vignette shadow overlays:
 
 * **3D Vanishing Grid Horizon**: The background features an animated HTML5 vector wireframe grid that scrolls forward and responds to mouse coordinates with elastic warp physics.
 * **Threat Lab Mainframe Simulator**: A CLI emulator shell that prints live stream stdout logs when SQL Injection, Directory Traversal, or Remote Code Execution (RCE) vectors are simulated against local endpoints.
@@ -35,7 +35,7 @@ graph TD
 ## 📂 Project Structure
 
 ```txt
-pyshield/
+aegis/
 ├── app/
 │   ├── main.py                # Main Flask dashboard & vulnerability routes
 │   ├── secure_main.py         # Secure equivalent code (vulnerability fixes)
@@ -90,7 +90,7 @@ Open your browser to `http://127.0.0.1:5001`.
 
 ## 🧪 Testing
 
-PyShield includes pytest coverage for scanning policy rules and WAF intercept controls:
+Aegis includes pytest coverage for scanning policy rules and WAF intercept controls:
 ```bash
 # Activate virtual environment
 source venv/bin/activate
@@ -103,7 +103,7 @@ pytest
 
 ## 🚀 DevSecOps Implementation Workflow for Teams
 
-You can use the patterns shown in PyShield to strengthen security in your production pipelines:
+You can use the patterns shown in Aegis to strengthen security in your production pipelines:
 
 1. **Adopt Automated Code Linters**: Run tools like `bandit -r src/ -f json -o bandit-report.json` as a pre-commit hook or inside your PR tests.
 2. **Fail Fast with Policy Engines**: Use `policy_engine.py` to assert scan findings. Return `exit 1` to fail pipelines automatically when any `HIGH` or `CRITICAL` vulnerability is introduced.

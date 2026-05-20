@@ -26,7 +26,7 @@ DOWNLOAD_DIR.mkdir(exist_ok=True)
 
 @app.route("/")
 def index():
-    return "<h1>Secure PyShield</h1><p>This is the hardened reference implementation.</p>"
+    return "<h1>Secure Aegis</h1><p>This is the hardened reference implementation.</p>"
 
 @app.route("/user")
 def get_user():

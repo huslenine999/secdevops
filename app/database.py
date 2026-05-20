@@ -3,9 +3,9 @@ import os
 from pathlib import Path
 
 if os.environ.get("VERCEL"):
-    DB_PATH = Path("/tmp/pyshield_demo.db")
+    DB_PATH = Path("/tmp/aegis_demo.db")
 else:
-    DB_PATH = Path(__file__).resolve().parent / "pyshield_demo.db"
+    DB_PATH = Path(__file__).resolve().parent / "aegis_demo.db"
 
 
 def get_connection():
