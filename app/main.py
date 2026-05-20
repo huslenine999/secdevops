@@ -4,7 +4,11 @@ import os
 import pickle
 import sqlite3
 import subprocess
+import sys
 from pathlib import Path
+
+# Add the current directory to sys.path to allow imports when running from root
+sys.path.append(str(Path(__file__).resolve().parent))
 
 from flask import Flask, jsonify, render_template, request
 
@@ -80,19 +84,30 @@ def get_report():
 @app.route("/run-scan", methods=["POST"])
 def run_scan():
     """
-    Triggers a fresh security scan using the policy engine.
+    Triggers fresh security scans and then runs the policy engine.
     """
     try:
-        # Run the policy engine as a subprocess. 
-        # In a real app, this would be an async task/worker.
-        engine_path = Path(__file__).resolve().parent.parent / "policy_engine.py"
-        venv_python = Path(__file__).resolve().parent.parent / "scanner-venv" / "bin" / "python3"
+        project_root = Path(__file__).resolve().parent.parent
+        scans_dir = project_root / "scans"
+        scans_dir.mkdir(exist_ok=True)
         
-        # If scanner-venv doesn't exist, fall back to current python
-        python_bin = str(venv_python) if venv_python.exists() else "python3"
+        # Determine the python executable and tool paths.
+        # Use current sys.executable to ensure we stay in the same venv.
+        python_bin = sys.executable
         
-        subprocess.run([python_bin, str(engine_path)], check=False)
-        return jsonify({"status": "success", "message": "Scan completed"})
+        # Run Bandit (SAST)
+        bandit_cmd = [python_bin, "-m", "bandit", "-r", "app", "-f", "json", "-o", str(scans_dir / "bandit-report.json")]
+        subprocess.run(bandit_cmd, cwd=project_root, check=False)
+        
+        # Run Safety (SCA) - using 'check' which works with requirements.txt
+        safety_cmd = [python_bin, "-m", "safety", "check", "-r", "requirements.txt", "--save-json", str(scans_dir / "safety-report.json")]
+        subprocess.run(safety_cmd, cwd=project_root, check=False)
+        
+        # Run the policy engine
+        engine_path = project_root / "policy_engine.py"
+        subprocess.run([python_bin, str(engine_path)], cwd=project_root, check=False)
+        
+        return jsonify({"status": "success", "message": "Scan completed and report generated."})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 

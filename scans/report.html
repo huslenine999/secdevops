@@ -431,7 +431,7 @@
         </div>
         <div style="display: flex; align-items: center; gap: 1.5rem;">
             <div class="timestamp">
-                > COMPILED_ON: {{ timestamp }}
+                > COMPILED_ON: 2026-05-20 21:22:43
             </div>
             <a href="/" class="btn-back">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -444,36 +444,44 @@
 
     <div class="container">
         <!-- Decision Banner -->
-        <div class="decision-banner {% if final_status == 'BLOCKED' %}status-blocked{% endif %} reveal">
+        <div class="decision-banner status-blocked reveal">
             <div class="decision-content">
-                <h1 class="decision-title">DEPLOYMENT_{{ final_status }}</h1>
-                <p class="decision-reason">> CRITICAL_GATE_STATUS: {{ reason }}</p>
+                <h1 class="decision-title">DEPLOYMENT_BLOCKED</h1>
+                <p class="decision-reason">> CRITICAL_GATE_STATUS: Blocking security issues found by: Bandit</p>
             </div>
         </div>
 
         <!-- Metrics Row -->
         <div class="metrics-grid reveal">
             <div class="metric-card">
-                <div class="metric-value">{{ results | length }}</div>
+                <div class="metric-value">3</div>
                 <div class="metric-label">Security Modules Run</div>
             </div>
             <div class="metric-card">
                 <div class="metric-value">
-                    {% set total_issues = namespace(val=0) %}
-                    {% for r in results %}
-                        {% set total_issues.val = total_issues.val + r.total_issues %}
-                    {% endfor %}
-                    {{ total_issues.val }}
+                    
+                    
+                        
+                    
+                        
+                    
+                        
+                    
+                    14
                 </div>
                 <div class="metric-label">Total Vulnerabilities</div>
             </div>
             <div class="metric-card">
                 <div class="metric-value">
-                    {% set total_blocking = namespace(val=0) %}
-                    {% for r in results %}
-                        {% set total_blocking.val = total_blocking.val + r.blocking_issues %}
-                    {% endfor %}
-                    {{ total_blocking.val }}
+                    
+                    
+                        
+                    
+                        
+                    
+                        
+                    
+                    7
                 </div>
                 <div class="metric-label">Blocking Issues</div>
             </div>
@@ -482,62 +490,178 @@
         <h2 class="section-title reveal mono">> DETAILED_ANALYSIS_LOGS</h2>
 
         <!-- Loop through tool results -->
-        {% for result in results %}
+        
         <div class="tool-panel reveal">
             <div class="tool-header">
-                <div class="tool-name">{{ result.tool }}</div>
-                <div class="tool-status {% if result.status == 'FAIL' %}status-fail{% endif %}">
-                    STATUS_{{ result.status }}
+                <div class="tool-name">Bandit</div>
+                <div class="tool-status status-fail">
+                    STATUS_FAIL
                 </div>
             </div>
             <div class="findings-list">
-                {% if result.examples %}
-                    {% for example in result.examples %}
-                        <div class="finding-item {% if example.severity == 'HIGH' or example.severity == 'CRITICAL' %}severity-high{% elif example.severity == 'MEDIUM' %}severity-medium{% endif %}">
+                
+                    
+                        <div class="finding-item severity-medium">
                             <div class="finding-meta">
-                                {% if example.severity %}
-                                <span class="severity-badge {% if example.severity == 'HIGH' or example.severity == 'CRITICAL' %}badge-high{% elif example.severity == 'MEDIUM' %}badge-medium{% endif %}">
-                                    {{ example.severity }}
+                                
+                                <span class="severity-badge badge-medium">
+                                    MEDIUM
                                 </span>
-                                {% endif %}
+                                
                                 <span class="finding-title">
-                                    {% if result.tool == 'Bandit' %}
-                                        {{ example.issue_text }}
-                                    {% elif result.tool == 'Safety' %}
-                                        Insecure Package: {{ example.package_name }}
-                                    {% elif result.tool == 'Trivy' %}
-                                        Vulnerability: {{ example.vulnerability_id }} ({{ example.package_name }})
-                                    {% endif %}
+                                    
+                                        Possible SQL injection vector through string-based query construction.
+                                    
                                 </span>
                             </div>
                             <div class="finding-desc">
-                                {% if result.tool == 'Bandit' %}
-                                    Defect ID: {{ example.test_id }} &bull; Source Code Violation detected.
-                                {% elif result.tool == 'Safety' %}
-                                    Affected Versions: {{ example.affected_versions }} &bull; Fixed Versions: {{ example.fixed_versions }}<br>
-                                    Description: {{ example.description }}
-                                {% elif result.tool == 'Trivy' %}
-                                    Severity: {{ example.severity }} &bull; Title: {{ example.title or 'N/A' }}<br>
-                                    Target Package: {{ example.package_name }} (Installed: {{ example.installed_version }}, Fixed in: {{ example.fixed_version }})
-                                {% endif %}
+                                
+                                    Defect ID: B608 &bull; Source Code Violation detected.
+                                
                             </div>
                             <div class="finding-location">
-                                {% if result.tool == 'Bandit' %}
-                                    > TARGET_FILE: {{ example.filename }} &bull; LINE_REF: {{ example.line_number }}
-                                {% elif result.tool == 'Trivy' %}
-                                    > TARGET: {{ example.target }}
-                                {% endif %}
+                                
+                                    > TARGET_FILE: app/main.py &bull; LINE_REF: 140
+                                
                             </div>
                         </div>
-                    {% endfor %}
-                {% else %}
+                    
+                        <div class="finding-item severity-high">
+                            <div class="finding-meta">
+                                
+                                <span class="severity-badge badge-high">
+                                    HIGH
+                                </span>
+                                
+                                <span class="finding-title">
+                                    
+                                        subprocess call with shell=True identified, security issue.
+                                    
+                                </span>
+                            </div>
+                            <div class="finding-desc">
+                                
+                                    Defect ID: B602 &bull; Source Code Violation detected.
+                                
+                            </div>
+                            <div class="finding-location">
+                                
+                                    > TARGET_FILE: app/main.py &bull; LINE_REF: 164
+                                
+                            </div>
+                        </div>
+                    
+                        <div class="finding-item severity-medium">
+                            <div class="finding-meta">
+                                
+                                <span class="severity-badge badge-medium">
+                                    MEDIUM
+                                </span>
+                                
+                                <span class="finding-title">
+                                    
+                                        Use of possibly insecure function - consider using safer ast.literal_eval.
+                                    
+                                </span>
+                            </div>
+                            <div class="finding-desc">
+                                
+                                    Defect ID: B307 &bull; Source Code Violation detected.
+                                
+                            </div>
+                            <div class="finding-location">
+                                
+                                    > TARGET_FILE: app/main.py &bull; LINE_REF: 183
+                                
+                            </div>
+                        </div>
+                    
+                        <div class="finding-item severity-medium">
+                            <div class="finding-meta">
+                                
+                                <span class="severity-badge badge-medium">
+                                    MEDIUM
+                                </span>
+                                
+                                <span class="finding-title">
+                                    
+                                        Pickle and modules that wrap it can be unsafe when used to deserialize untrusted data, possible security issue.
+                                    
+                                </span>
+                            </div>
+                            <div class="finding-desc">
+                                
+                                    Defect ID: B301 &bull; Source Code Violation detected.
+                                
+                            </div>
+                            <div class="finding-location">
+                                
+                                    > TARGET_FILE: app/main.py &bull; LINE_REF: 204
+                                
+                            </div>
+                        </div>
+                    
+                        <div class="finding-item severity-high">
+                            <div class="finding-meta">
+                                
+                                <span class="severity-badge badge-high">
+                                    HIGH
+                                </span>
+                                
+                                <span class="finding-title">
+                                    
+                                        Use of weak MD5 hash for security. Consider usedforsecurity=False
+                                    
+                                </span>
+                            </div>
+                            <div class="finding-desc">
+                                
+                                    Defect ID: B324 &bull; Source Code Violation detected.
+                                
+                            </div>
+                            <div class="finding-location">
+                                
+                                    > TARGET_FILE: app/main.py &bull; LINE_REF: 244
+                                
+                            </div>
+                        </div>
+                    
+                
+            </div>
+        </div>
+        
+        <div class="tool-panel reveal">
+            <div class="tool-header">
+                <div class="tool-name">Safety</div>
+                <div class="tool-status ">
+                    STATUS_PASS
+                </div>
+            </div>
+            <div class="findings-list">
+                
                     <div style="color: var(--text-muted); font-size: 0.9rem; font-style: italic;">
                         No issues detected by this scanner daemon.
                     </div>
-                {% endif %}
+                
             </div>
         </div>
-        {% endfor %}
+        
+        <div class="tool-panel reveal">
+            <div class="tool-header">
+                <div class="tool-name">Trivy</div>
+                <div class="tool-status ">
+                    STATUS_PASS
+                </div>
+            </div>
+            <div class="findings-list">
+                
+                    <div style="color: var(--text-muted); font-size: 0.9rem; font-style: italic;">
+                        No issues detected by this scanner daemon.
+                    </div>
+                
+            </div>
+        </div>
+        
     </div>
 
     <footer>

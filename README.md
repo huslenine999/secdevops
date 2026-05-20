@@ -63,11 +63,20 @@ This project intentionally includes vulnerabilities for security scanning and de
 
 ## Local Run
 
+### Option 1: Quick Setup (Recommended)
+Run the automated setup script to prepare the environment and start the application:
+```bash
+chmod +x setup.sh
+./setup.sh
+```
+
+### Option 2: Manual Setup
 1. **Setup Environment**:
    ```bash
    python3 -m venv venv
    source venv/bin/activate
    pip install -r requirements.txt
+   pip install -r requirements-dev.txt
    ```
 
 2. **Initialize & Start**:
