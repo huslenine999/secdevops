@@ -46,3 +46,46 @@ def test_waf_toggle(client):
     # Toggle off
     response = client.post('/toggle-waf')
     assert response.json['waf_enabled'] is False
+
+def test_waf_custom_rules(client):
+    """Test custom WAF rules retrieval, saving, and blocking."""
+    # 1. Fetch initial rules
+    response = client.get('/get-waf-rules')
+    assert response.status_code == 200
+    assert response.json['status'] == 'success'
+    assert 'rules' in response.json
+    assert 'waf_enabled' in response.json
+    original_rules = response.json['rules']
+
+    try:
+        # 2. Save a custom rule pattern
+        custom_rules = [
+            {"pattern": "custom_hack_pattern", "description": "Custom hacker signature", "enabled": True}
+        ]
+        save_response = client.post('/save-waf-rules', json={"rules": custom_rules})
+        assert save_response.status_code == 200
+        assert save_response.json['status'] == 'success'
+
+        # 3. Enable WAF
+        toggle_response = client.post('/toggle-waf')
+        assert toggle_response.json['waf_enabled'] is True
+
+        # 4. Test blocking of custom pattern
+        blocked_response = client.get('/user?name=custom_hack_pattern')
+        assert blocked_response.status_code == 403
+        assert b"Custom hacker signature" in blocked_response.data
+
+        # 5. Disable custom pattern and test bypass
+        disabled_rules = [
+            {"pattern": "custom_hack_pattern", "description": "Custom hacker signature", "enabled": False}
+        ]
+        client.post('/save-waf-rules', json={"rules": disabled_rules})
+        allowed_response = client.get('/user?name=custom_hack_pattern')
+        assert allowed_response.status_code == 200
+
+        # Disable WAF
+        client.post('/toggle-waf')
+
+    finally:
+        # Restore original rules
+        client.post('/save-waf-rules', json={"rules": original_rules})

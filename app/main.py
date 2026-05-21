@@ -2,6 +2,7 @@ import base64
 import hashlib
 import os
 import pickle
+import re
 import sqlite3
 import subprocess
 import sys
@@ -10,7 +11,7 @@ from pathlib import Path
 # Add the current directory to sys.path to allow imports when running from root
 sys.path.append(str(Path(__file__).resolve().parent))
 
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, Response, jsonify, render_template, request
 
 from database import DB_PATH, initialize_database
 
@@ -19,30 +20,56 @@ app = Flask(__name__)
 # Global state for the WAF toggle (demo only)
 WAF_ENABLED = False
 
+# Default dynamic WAF Rules (mutable in memory)
+WAF_RULES = [
+    {"pattern": "' OR '", "description": "SQL Injection (OR operator bypass)", "enabled": True},
+    {"pattern": "1=1", "description": "SQL Injection (tautology bypass)", "enabled": True},
+    {"pattern": "--", "description": "SQL comment character block", "enabled": True},
+    {"pattern": "cat /etc/passwd", "description": "LFI/Command execution pattern 1", "enabled": True},
+    {"pattern": "\\.\\./", "description": "Directory Traversal pattern (../)", "enabled": True},
+    {"pattern": "pickle\\.loads", "description": "Python deserialization hijack detector", "enabled": True},
+    {"pattern": "eval\\(", "description": "Python dynamic expression injection detector", "enabled": True}
+]
+
 @app.before_request
 def waf_middleware():
     """
     Simulated Web Application Firewall (WAF).
     Blocks suspicious patterns if enabled.
     """
-    global WAF_ENABLED
+    global WAF_ENABLED, WAF_RULES
+    # Bypass WAF checks for WAF management, scanning, and dossier export routes
+    if request.path in ["/toggle-waf", "/get-waf-rules", "/save-waf-rules", "/run-scan", "/export-dossier"]:
+        return
+
     if not WAF_ENABLED:
         return
 
-    # Simple pattern matching for common attacks
-    suspicious_patterns = [
-        "' OR '", "1=1", "--", "cat /etc/passwd", "../", "pickle.loads", "eval("
-    ]
-    
-    # Check query params and body
+    # Check query params, form body, and raw data
     payload = str(request.args) + str(request.form) + str(request.data)
-    for pattern in suspicious_patterns:
-        if pattern in payload:
-            return jsonify({
-                "error": "Blocked by Aegis WAF",
-                "reason": f"Detected malicious pattern: {pattern}",
-                "status": "security_violation"
-            }), 403
+    
+    for rule in WAF_RULES:
+        if not rule.get("enabled", True):
+            continue
+        pattern = rule.get("pattern", "")
+        if not pattern:
+            continue
+        try:
+            # Check with compiled regex pattern
+            if re.search(pattern, payload, re.IGNORECASE):
+                return jsonify({
+                    "error": "Blocked by Aegis WAF",
+                    "reason": f"Detected malicious pattern: {rule.get('description', pattern)}",
+                    "status": "security_violation"
+                }), 403
+        except re.error:
+            # Fallback to simple literal check
+            if pattern in payload:
+                return jsonify({
+                    "error": "Blocked by Aegis WAF",
+                    "reason": f"Detected malicious pattern (literal): {rule.get('description', pattern)}",
+                    "status": "security_violation"
+                }), 403
 
 
 @app.route("/toggle-waf", methods=["POST"])
@@ -50,6 +77,32 @@ def toggle_waf():
     global WAF_ENABLED
     WAF_ENABLED = not WAF_ENABLED
     return jsonify({"status": "success", "waf_enabled": WAF_ENABLED})
+
+
+@app.route("/get-waf-rules", methods=["GET"])
+def get_waf_rules():
+    global WAF_RULES, WAF_ENABLED
+    return jsonify({"status": "success", "rules": WAF_RULES, "waf_enabled": WAF_ENABLED})
+
+
+@app.route("/save-waf-rules", methods=["POST"])
+def save_waf_rules():
+    global WAF_RULES
+    try:
+        data = request.json
+        rules = data.get("rules", [])
+        new_rules = []
+        for r in rules:
+            if "pattern" in r:
+                new_rules.append({
+                    "pattern": str(r["pattern"]),
+                    "description": str(r.get("description", "")),
+                    "enabled": bool(r.get("enabled", True))
+                })
+        WAF_RULES = new_rules
+        return jsonify({"status": "success", "message": "WAF rules updated successfully."})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 400
 
 
 # Use environment variables for secrets.
@@ -272,6 +325,212 @@ def debug_info():
         "aws_access_key": AWS_ACCESS_KEY_ID,
         "environment": dict(os.environ)
     })
+
+
+@app.route("/export-dossier")
+def export_dossier():
+    """
+    Generates and downloads a retro monospaced dot-matrix ASCII compliance report
+    summarizing results from bandit, safety, and trivy.
+    """
+    import json
+    from datetime import datetime
+    
+    def load_json(path):
+        if not path.exists():
+            return None
+        try:
+            return json.loads(path.read_text())
+        except Exception:
+            return None
+
+    bandit_report = load_json(SCANS_DIR / "bandit-report.json")
+    safety_report = load_json(SCANS_DIR / "safety-report.json")
+    trivy_report = load_json(SCANS_DIR / "trivy-report.json")
+
+    # Determine status & counts for Bandit
+    if not (SCANS_DIR / "bandit-report.json").exists():
+        bandit_status = "MISSING"
+        bandit_total = 0
+        bandit_blocking = 0
+    else:
+        bandit_results = bandit_report.get("results", []) if bandit_report else []
+        bandit_total = len(bandit_results)
+        bandit_blocking = len([i for i in bandit_results if i.get("issue_severity", "").upper() in {"MEDIUM", "HIGH"}])
+        bandit_status = "FAIL" if bandit_blocking > 0 else "PASS"
+
+    # Determine status & counts for Safety
+    if not (SCANS_DIR / "safety-report.json").exists():
+        safety_status = "MISSING"
+        safety_total = 0
+        safety_blocking = 0
+    else:
+        safety_vulns = []
+        if isinstance(safety_report, dict):
+            safety_vulns = safety_report.get("vulnerabilities", []) or safety_report.get("results", [])
+        elif isinstance(safety_report, list):
+            safety_vulns = safety_report
+        safety_total = len(safety_vulns)
+        safety_blocking = safety_total
+        safety_status = "FAIL" if safety_blocking > 0 else "PASS"
+
+    # Determine status & counts for Trivy
+    if not (SCANS_DIR / "trivy-report.json").exists():
+        trivy_status = "MISSING"
+        trivy_total = 0
+        trivy_blocking = 0
+    else:
+        trivy_vulns = []
+        for result in (trivy_report.get("Results", []) or []):
+            for vulnerability in result.get("Vulnerabilities", []) or []:
+                trivy_vulns.append(vulnerability)
+        trivy_total = len(trivy_vulns)
+        trivy_blocking = len([v for v in trivy_vulns if v.get("Severity", "").upper() in {"MEDIUM", "HIGH", "CRITICAL"}])
+        trivy_status = "FAIL" if trivy_blocking > 0 else "PASS"
+
+    # Final overall decision
+    failed_tools = []
+    missing_tools = []
+    for tool, status in [("Bandit", bandit_status), ("Safety", safety_status), ("Trivy", trivy_status)]:
+        if status == "FAIL":
+            failed_tools.append(tool)
+        elif status == "MISSING":
+            missing_tools.append(tool)
+
+    if failed_tools or missing_tools:
+        gate_decision = "BLOCKED"
+        reasons = []
+        if failed_tools:
+            reasons.append(f"Blocking security issues found by: {', '.join(failed_tools)}")
+        if missing_tools:
+            reasons.append(f"Required scan reports missing for: {', '.join(missing_tools)}")
+        reason = " | ".join(reasons)
+    else:
+        gate_decision = "ALLOWED"
+        reason = "No blocking security issues found."
+
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    # Format Bandit findings
+    bandit_findings = ""
+    if bandit_report and bandit_report.get("results"):
+        for issue in bandit_report.get("results", [])[:5]:
+            bandit_findings += f"  - ID: {issue.get('test_id')} | Severity: {issue.get('issue_severity')} | Confidence: {issue.get('issue_confidence')}\n"
+            bandit_findings += f"    Location: {issue.get('filename')}:{issue.get('line_number')}\n"
+            bandit_findings += f"    Details: {issue.get('issue_text')}\n"
+            code_lines = issue.get('code', '').strip().split('\n')
+            if code_lines:
+                bandit_findings += f"    Source:\n"
+                for cl in code_lines[:3]:
+                    bandit_findings += f"      >> {cl}\n"
+            bandit_findings += "  ------------------------------------------------------------------\n"
+    else:
+        bandit_findings = "  No issues detected.\n"
+
+    # Format Safety findings
+    safety_findings = ""
+    if safety_report:
+        vulns = []
+        if isinstance(safety_report, dict):
+            vulns = safety_report.get("vulnerabilities", []) or safety_report.get("results", [])
+        elif isinstance(safety_report, list):
+            vulns = safety_report
+        
+        if vulns:
+            for v in vulns[:5]:
+                pkg = v.get("package_name") or v.get("package")
+                vuln_id = v.get("vulnerability_id") or v.get("advisory")
+                affected = v.get("affected_versions") or v.get("version")
+                fixed = v.get("fixed_versions") or v.get("fixed")
+                desc = v.get("description") or v.get("reason", "No description provided.")
+                safety_findings += f"  - Package: {pkg} | ID: {vuln_id}\n"
+                safety_findings += f"    Affected: {affected} | Fixed: {fixed}\n"
+                safety_findings += f"    Description: {desc[:120]}...\n"
+                safety_findings += "  ------------------------------------------------------------------\n"
+        else:
+            safety_findings = "  No issues detected.\n"
+    else:
+        safety_findings = "  No report file found.\n"
+
+    # Format Trivy findings
+    trivy_findings = ""
+    if trivy_report:
+        trivy_vulns = []
+        for result in trivy_report.get("Results", []) or []:
+            for vulnerability in result.get("Vulnerabilities", []) or []:
+                trivy_vulns.append({
+                    "target": result.get("Target"),
+                    "vulnerability_id": vulnerability.get("VulnerabilityID"),
+                    "package_name": vulnerability.get("PkgName"),
+                    "installed_version": vulnerability.get("InstalledVersion"),
+                    "fixed_version": vulnerability.get("FixedVersion"),
+                    "severity": vulnerability.get("Severity", "").upper(),
+                    "title": vulnerability.get("Title"),
+                })
+        if trivy_vulns:
+            for v in trivy_vulns[:5]:
+                trivy_findings += f"  - Target: {v.get('target')} | Package: {v.get('package_name')} | ID: {v.get('vulnerability_id')}\n"
+                trivy_findings += f"    Severity: {v.get('severity')} | Installed: {v.get('installed_version')} | Fixed: {v.get('fixed_version')}\n"
+                trivy_findings += f"    Title: {v.get('title')}\n"
+                trivy_findings += "  ------------------------------------------------------------------\n"
+        else:
+            trivy_findings = "  No issues detected.\n"
+    else:
+        trivy_findings = "  No report file found.\n"
+
+    dossier_text = f"""================================================================================
+ █████╗ ███████╗ ██████╗ ██╗███████╗
+██╔══██╗██╔════╝██╔════╝ ██║██╔════╝
+███████║█████╗  ██║  ███╗██║███████╗
+██╔══██║██╔══╝  ██║   ██║██║╚════██║
+██║  ██║███████╗╚██████╔╝██║███████║
+╚═╝  ╚═╝╚══════╝ ╚═════╝ ╚═╝╚══════╝
+      AEGIS DEVSECOPS COMPLIANCE DOSSIER
+================================================================================
+TIMESTAMP: {timestamp}
+GATE DECISION: {gate_decision}
+REASON: {reason}
+================================================================================
+
+[1] STATIC APPLICATION SECURITY TESTING (SAST) - BANDIT
+--------------------------------------------------------------------------------
+Status: {bandit_status}
+Total Issues Detected: {bandit_total}
+Blocking Issues: {bandit_blocking}
+
+FINDINGS (Top 5):
+{bandit_findings}
+
+[2] SOFTWARE COMPOSITION ANALYSIS (SCA) - SAFETY
+--------------------------------------------------------------------------------
+Status: {safety_status}
+Total Issues Detected: {safety_total}
+Blocking Issues: {safety_blocking}
+
+FINDINGS (Top 5):
+{safety_findings}
+
+[3] CONTAINER IMAGE SCANNING - TRIVY
+--------------------------------------------------------------------------------
+Status: {trivy_status}
+Total Issues Detected: {trivy_total}
+Blocking Issues: {trivy_blocking}
+
+FINDINGS (Top 5):
+{trivy_findings}
+
+================================================================================
+                    [ END OF SECURE TRANSMISSION ]
+================================================================================
+"""
+
+    return Response(
+        dossier_text,
+        mimetype="text/plain",
+        headers={
+            "Content-Disposition": "attachment;filename=aegis-compliance-dossier.txt"
+        }
+    )
 
 
 if __name__ == "__main__":
