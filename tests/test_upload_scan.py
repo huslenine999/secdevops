@@ -108,3 +108,116 @@ def test_run_scan_custom_vulnerable_js(client):
     assert (SCANS_DIR / "report.html").exists()
     report_html = (SCANS_DIR / "report.html").read_text()
     assert "BLOCKED" in report_html
+
+
+def test_run_scan_custom_clean_c(client):
+    """Ensure a custom clean C file upload runs successfully and passes the policy gate."""
+    clean_code = """
+#include <stdio.h>
+int main() {
+    printf("Hello, secure C world!\\n");
+    return 0;
+}
+"""
+    data = {
+        'file': (io.BytesIO(clean_code.encode('utf-8')), 'clean_test.c')
+    }
+    
+    response = client.post('/run-scan', data=data, content_type='multipart/form-data')
+    assert response.status_code == 200
+    assert response.json['status'] == 'success'
+    
+    # The uploads folder should be completely clean
+    uploads_dir = SCANS_DIR / "uploads"
+    if uploads_dir.exists():
+        subdirs = list(uploads_dir.iterdir())
+        assert len(subdirs) == 0
+
+    assert (SCANS_DIR / "semgrep-report.json").exists()
+    semgrep_report = json.loads((SCANS_DIR / "semgrep-report.json").read_text())
+    assert len(semgrep_report.get("results", [])) == 0
+
+
+def test_run_scan_custom_vulnerable_c(client):
+    """Ensure a custom vulnerable C file upload runs successfully but fails the policy gate."""
+    vuln_code = """
+#include <stdio.h>
+int main() {
+    char buf[10];
+    gets(buf);
+    return 0;
+}
+"""
+    data = {
+        'file': (io.BytesIO(vuln_code.encode('utf-8')), 'vuln_test.c')
+    }
+    
+    response = client.post('/run-scan', data=data, content_type='multipart/form-data')
+    assert response.status_code == 200
+    assert response.json['status'] == 'success'
+    
+    assert (SCANS_DIR / "semgrep-report.json").exists()
+    semgrep_report = json.loads((SCANS_DIR / "semgrep-report.json").read_text())
+    assert len(semgrep_report.get("results", [])) > 0
+    
+    assert (SCANS_DIR / "report.html").exists()
+    report_html = (SCANS_DIR / "report.html").read_text()
+    assert "BLOCKED" in report_html
+
+
+def test_run_scan_custom_clean_java(client):
+    """Ensure a custom clean Java file upload runs successfully and passes the policy gate."""
+    clean_code = """
+public class CleanTest {
+    public static void main(String[] args) {
+        System.out.println("Hello, secure Java world!");
+    }
+}
+"""
+    data = {
+        'file': (io.BytesIO(clean_code.encode('utf-8')), 'CleanTest.java')
+    }
+    
+    response = client.post('/run-scan', data=data, content_type='multipart/form-data')
+    assert response.status_code == 200
+    assert response.json['status'] == 'success'
+    
+    uploads_dir = SCANS_DIR / "uploads"
+    if uploads_dir.exists():
+        subdirs = list(uploads_dir.iterdir())
+        assert len(subdirs) == 0
+
+    assert (SCANS_DIR / "semgrep-report.json").exists()
+    semgrep_report = json.loads((SCANS_DIR / "semgrep-report.json").read_text())
+    assert len(semgrep_report.get("results", [])) == 0
+
+
+def test_run_scan_custom_vulnerable_java(client):
+    """Ensure a custom vulnerable Java file upload runs successfully but fails the policy gate."""
+    vuln_code = """
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+
+public class VulnTest {
+    public static void main(String[] args) throws NoSuchAlgorithmException {
+        // MD5 is a weak cryptographic hash algorithm
+        MessageDigest md = MessageDigest.getInstance("MD5");
+    }
+}
+"""
+    data = {
+        'file': (io.BytesIO(vuln_code.encode('utf-8')), 'VulnTest.java')
+    }
+    
+    response = client.post('/run-scan', data=data, content_type='multipart/form-data')
+    assert response.status_code == 200
+    assert response.json['status'] == 'success'
+    
+    assert (SCANS_DIR / "semgrep-report.json").exists()
+    semgrep_report = json.loads((SCANS_DIR / "semgrep-report.json").read_text())
+    assert len(semgrep_report.get("results", [])) > 0
+    
+    assert (SCANS_DIR / "report.html").exists()
+    report_html = (SCANS_DIR / "report.html").read_text()
+    assert "BLOCKED" in report_html
+
