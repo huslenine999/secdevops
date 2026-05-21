@@ -76,7 +76,7 @@ def analyze_safety(report: Any) -> Dict[str, Any]:
     """
     vulnerabilities: List[Any] = []
 
-    if not report:
+    if report is None:
         return {
             "tool": "Safety",
             "total_issues": 0,

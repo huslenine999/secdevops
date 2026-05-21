@@ -742,6 +742,13 @@
                         EXEC_POLICY_SCAN
                     </span>
                 </button>
+                <input type="file" id="uploadFile" accept=".py" style="display: none;">
+                <button id="uploadBtn" class="btn btn-secondary">
+                    <span id="uploadBtnText" style="display: flex; align-items: center; gap: 0.5rem;" data-i18n="upload_btn">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                        UPLOAD_AND_SCAN
+                    </span>
+                </button>
                 <a href="/export-dossier" class="btn btn-secondary mono" style="display: inline-flex; align-items: center; gap: 0.5rem;">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
                     EXPORT_ASCII_DOSSIER
@@ -1081,6 +1088,11 @@
                 scan_btn_scanned: "✅ CODEBASE_SCANNED!",
                 scan_btn_aborted: "❌ SCAN_ABORTED",
                 scan_btn_error: "❌ GATE_ERROR",
+                upload_btn: "UPLOAD_AND_SCAN",
+                upload_btn_scanning: "UPLOADING_AND_SCANNING...",
+                upload_btn_scanned: "✅ UPLOAD_COMPLETED!",
+                upload_btn_aborted: "❌ SCAN_ABORTED",
+                upload_btn_error: "❌ UPLOAD_ERROR",
                 log_waf_on: ">> SIG_DEFENSE: WAF core shields initialized and active.",
                 log_waf_off: ">> SIG_DEFENSE: WAF disarmed. System exposed.",
                 log_conn_fail: "ERR: Failed to connect to gateway controller.",
@@ -1121,6 +1133,11 @@
                 scan_btn_scanned: "✅ 코드베이스_검사_완료!",
                 scan_btn_aborted: "❌ 검사_중단됨",
                 scan_btn_error: "❌ 게이트_오류",
+                upload_btn: "코드_업로드_검사",
+                upload_btn_scanning: "업로드_및_검사_중...",
+                upload_btn_scanned: "✅ 업로드_검사_완료!",
+                upload_btn_aborted: "❌ 검사_중단됨",
+                upload_btn_error: "❌ 업로드_오류",
                 log_waf_on: ">> 보안_방어: WAF 코어 쉴드가 초기화되었으며 활성 상태입니다.",
                 log_waf_off: ">> 보안_방어: WAF 장비 비활성화. 시스템이 공격에 노출되었습니다.",
                 log_conn_fail: "오류: 게이트웨이 컨트롤러에 연결하지 못했습니다.",
@@ -1166,6 +1183,16 @@
                 btnText.innerHTML = '';
                 btnText.appendChild(svg);
                 btnText.appendChild(document.createTextNode(' ' + i18n[lang]['scan_btn_ready']));
+            }
+
+            // Update upload button text if not disabled
+            const uploadBtn = document.getElementById('uploadBtn');
+            const uploadBtnText = document.getElementById('uploadBtnText');
+            if (uploadBtn && !uploadBtn.disabled) {
+                const svg = uploadBtnText.querySelector('svg');
+                uploadBtnText.innerHTML = '';
+                uploadBtnText.appendChild(svg);
+                uploadBtnText.appendChild(document.createTextNode(' ' + i18n[lang]['upload_btn']));
             }
 
             // Update WAF status text dynamically
@@ -2100,6 +2127,76 @@ BIOGRAPHY: Specialized in information leakage. Recursively traverses web directo
                 addSyslogEntry('[ERR] systemd: Scan sub-process critical failure.', 'var(--danger)');
             }
         });
+
+        // Upload & Scan button trigger
+        const uploadBtn = document.getElementById('uploadBtn');
+        const uploadFile = document.getElementById('uploadFile');
+
+        if (uploadBtn && uploadFile) {
+            uploadBtn.addEventListener('click', () => {
+                if (typeof synth !== 'undefined' && synth.playClick) {
+                    synth.playClick();
+                }
+                uploadFile.click();
+            });
+
+            uploadFile.addEventListener('change', async (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                const btn = document.getElementById('uploadBtn');
+                const text = document.getElementById('uploadBtnText');
+                
+                btn.disabled = true;
+                btn.style.opacity = '0.6';
+                text.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg> ${i18n[currentLang]['upload_btn_scanning']}`;
+                
+                addSyslogEntry(`[INFO] upload: User uploaded file ${file.name} for scanning.`, 'var(--text-main)');
+
+                if (!document.getElementById('spin-style')) {
+                    const style = document.createElement('style');
+                    style.id = 'spin-style';
+                    style.innerHTML = '@keyframes spin { 100% { transform: rotate(360deg); } } .spin { animation: spin 1.2s linear infinite; }';
+                    document.head.appendChild(style);
+                }
+
+                const formData = new FormData();
+                formData.append('file', file);
+
+                try {
+                    const response = await fetch('/run-scan', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const result = await response.json();
+                    if (result.status === 'success') {
+                        text.innerText = i18n[currentLang]['upload_btn_scanned'];
+                        addSyslogEntry('[OK] systemd: Custom scan complete. Loading report...', 'var(--primary)');
+                        setTimeout(() => {
+                            window.location.href = '/report';
+                        }, 1000);
+                    } else {
+                        alert('SCAN ABORTED: ' + result.message);
+                        text.innerText = i18n[currentLang]['upload_btn_aborted'];
+                        btn.disabled = false;
+                        addSyslogEntry('[ERR] systemd: Custom scan aborted by security gate policy.', 'var(--danger)');
+                        if (typeof synth !== 'undefined' && synth.playAlarm) {
+                            synth.playAlarm();
+                        }
+                    }
+                } catch (e) {
+                    alert('FATAL: Scanner daemon offline. ' + e);
+                    text.innerText = i18n[currentLang]['upload_btn_error'];
+                    btn.disabled = false;
+                    addSyslogEntry('[ERR] systemd: Custom scan sub-process critical failure.', 'var(--danger)');
+                    if (typeof synth !== 'undefined' && synth.playAlarm) {
+                        synth.playAlarm();
+                    }
+                } finally {
+                    uploadFile.value = '';
+                }
+            });
+        }
 
         // Load rules on startup
         loadWafRules();

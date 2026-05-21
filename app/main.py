@@ -153,29 +153,68 @@ def get_report():
 def run_scan():
     """
     Triggers fresh security scans and then runs the policy engine.
+    Supports either scanning the local application codebase or a custom uploaded file.
     """
+    import uuid
+    import shutil
+    import json
+    from werkzeug.utils import secure_filename
+
+    uploaded_file = request.files.get("file")
+    is_custom_scan = False
+    temp_dir = None
+
     try:
         # Determine the python executable and tool paths.
         # Use current sys.executable to ensure we stay in the same venv.
         python_bin = sys.executable
         
-        # Run Bandit (SAST)
-        bandit_cmd = [python_bin, "-m", "bandit", "-r", "app", "-f", "json", "-o", str(SCANS_DIR / "bandit-report.json")]
-        subprocess.run(bandit_cmd, cwd=PROJECT_ROOT, check=False)
-        
-        # Run Safety (SCA) - using 'check' which works with requirements.txt
-        safety_cmd = [python_bin, "-m", "safety", "check", "-r", "requirements.txt", "--save-json", str(SCANS_DIR / "safety-report.json")]
-        subprocess.run(safety_cmd, cwd=PROJECT_ROOT, check=False)
+        if uploaded_file and uploaded_file.filename:
+            is_custom_scan = True
+            filename = secure_filename(uploaded_file.filename)
+            uuid_str = uuid.uuid4().hex
+            temp_dir = SCANS_DIR / "uploads" / uuid_str
+            temp_dir.mkdir(exist_ok=True, parents=True)
+            temp_filepath = temp_dir / filename
+            uploaded_file.save(str(temp_filepath))
+            
+            # Run Bandit (SAST) on the custom file specifically
+            bandit_cmd = [python_bin, "-m", "bandit", "-f", "json", "-o", str(SCANS_DIR / "bandit-report.json"), str(temp_filepath)]
+            subprocess.run(bandit_cmd, cwd=PROJECT_ROOT, check=False)
+            
+            # Write clean/empty mock results to safety-report.json and trivy-report.json
+            with open(SCANS_DIR / "safety-report.json", "w") as f:
+                json.dump([], f)
+            with open(SCANS_DIR / "trivy-report.json", "w") as f:
+                json.dump({"Results": []}, f)
+        else:
+            # Run Bandit (SAST) on default app directory
+            bandit_cmd = [python_bin, "-m", "bandit", "-r", "app", "-f", "json", "-o", str(SCANS_DIR / "bandit-report.json")]
+            subprocess.run(bandit_cmd, cwd=PROJECT_ROOT, check=False)
+            
+            # Run Safety (SCA) - using 'check' which works with requirements.txt
+            safety_cmd = [python_bin, "-m", "safety", "check", "-r", "requirements.txt", "--save-json", str(SCANS_DIR / "safety-report.json")]
+            subprocess.run(safety_cmd, cwd=PROJECT_ROOT, check=False)
+            
+            # Ensure trivy-report.json exists
+            trivy_path = SCANS_DIR / "trivy-report.json"
+            if not trivy_path.exists():
+                with open(trivy_path, "w") as f:
+                    json.dump({"Results": []}, f)
         
         # Run the policy engine
         engine_path = PROJECT_ROOT / "policy_engine.py"
-        # Pass SCANS_DIR to policy engine via environment variable if needed, 
-        # but policy_engine.py also needs to be updated.
         subprocess.run([python_bin, str(engine_path)], cwd=PROJECT_ROOT, check=False, env={**os.environ, "SCANS_DIR": str(SCANS_DIR)})
         
         return jsonify({"status": "success", "message": "Scan completed and report generated."})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+    finally:
+        if is_custom_scan and temp_dir and temp_dir.exists():
+            try:
+                shutil.rmtree(temp_dir)
+            except Exception as e:
+                app.logger.error(f"Failed to clean up temp directory {temp_dir}: {e}")
 
 
 @app.route("/health")
