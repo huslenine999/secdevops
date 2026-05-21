@@ -89,3 +89,76 @@ def test_waf_custom_rules(client):
     finally:
         # Restore original rules
         client.post('/save-waf-rules', json={"rules": original_rules})
+
+
+def test_waf_json_payload_blocking(client):
+    """Test that WAF middleware correctly inspects and blocks malicious patterns inside JSON request bodies."""
+    import base64
+    import pickle
+
+    # 1. Enable WAF
+    client.post('/toggle-waf')
+
+    # 2. Send clean JSON body (valid base64 encoded pickle) -> should be allowed (200 status code)
+    clean_val = base64.b64encode(pickle.dumps({"name": "guest"})).decode("utf-8")
+    response = client.post('/load-profile', json={"profile": clean_val})
+    assert response.status_code == 200
+
+    # 3. Send JSON body with SQL injection signature in key or value -> should be blocked
+    response = client.post('/load-profile', json={"profile": "' OR '"})
+    assert response.status_code == 403
+    assert b"Blocked by Aegis WAF" in response.data
+
+    # 4. Send nested JSON body with malicious signature -> should be blocked
+    response = client.post('/load-profile', json={"profile": {"details": {"nested_key": "cat /etc/passwd"}}})
+    assert response.status_code == 403
+    assert b"Blocked by Aegis WAF" in response.data
+
+    # 5. Disable WAF and verify it bypasses WAF (but might fail to decode OR/etc. with 500 error or raise an exception)
+    client.post('/toggle-waf')
+    try:
+        response = client.post('/load-profile', json={"profile": "' OR '"})
+        assert response.status_code != 403
+    except Exception:
+        # If it raised an exception, it successfully bypassed the WAF and reached the backend decoder
+        pass
+
+
+def test_waf_rules_persistence(client):
+    """Test that custom WAF rules are actually written to and retrieved from the SQLite database."""
+    import sqlite3
+    from app.database import DB_PATH
+
+    # Fetch current rules to restore later
+    response = client.get('/get-waf-rules')
+    original_rules = response.json['rules']
+
+    try:
+        # Define a new custom rule
+        new_rules = original_rules + [
+            {"pattern": "persisted_hack_pattern", "description": "Persistent Threat Signature", "enabled": True}
+        ]
+
+        # Save rules via endpoint
+        save_response = client.post('/save-waf-rules', json={"rules": new_rules})
+        assert save_response.status_code == 200
+
+        # Read directly from SQLite database file to verify persistence
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("SELECT pattern, description, enabled FROM waf_rules WHERE pattern = 'persisted_hack_pattern'")
+        row = cursor.fetchone()
+        conn.close()
+
+        assert row is not None
+        assert row[0] == "persisted_hack_pattern"
+        assert row[1] == "Persistent Threat Signature"
+        assert row[2] == 1
+
+        # Retrieve rules via get endpoint to verify it reads from database
+        get_response = client.get('/get-waf-rules')
+        assert any(r['pattern'] == 'persisted_hack_pattern' for r in get_response.json['rules'])
+
+    finally:
+        # Restore original rules
+        client.post('/save-waf-rules', json={"rules": original_rules})

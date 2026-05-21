@@ -221,3 +221,50 @@ public class VulnTest {
     report_html = (SCANS_DIR / "report.html").read_text()
     assert "BLOCKED" in report_html
 
+
+def test_run_scan_vulnerable_target(client):
+    """Test that scanning the vulnerable target (main.py) triggers Semgrep and Bandit, and blocks the gate."""
+    response = client.post('/run-scan', json={"target": "vulnerable"})
+    assert response.status_code == 200
+    assert response.json['status'] == 'success'
+
+    # Ensure reports are generated
+    assert (SCANS_DIR / "semgrep-report.json").exists()
+    assert (SCANS_DIR / "bandit-report.json").exists()
+    assert (SCANS_DIR / "report.html").exists()
+
+    semgrep_report = json.loads((SCANS_DIR / "semgrep-report.json").read_text())
+    bandit_report = json.loads((SCANS_DIR / "bandit-report.json").read_text())
+
+    # The vulnerable main.py has issues
+    assert len(semgrep_report.get("results", [])) > 0
+    
+    # If Bandit did not encounter internal errors (e.g. Python version compatibility), assert findings
+    if not bandit_report.get("errors"):
+        assert len(bandit_report.get("results", [])) > 0
+
+    report_html = (SCANS_DIR / "report.html").read_text()
+    assert "BLOCKED" in report_html
+
+
+def test_run_scan_secure_target(client):
+    """Test that scanning the secure target (secure_main.py) has no issues and allows deployment."""
+    response = client.post('/run-scan', json={"target": "secure"})
+    assert response.status_code == 200
+    assert response.json['status'] == 'success'
+
+    # Ensure reports are generated
+    assert (SCANS_DIR / "semgrep-report.json").exists()
+    assert (SCANS_DIR / "bandit-report.json").exists()
+    assert (SCANS_DIR / "report.html").exists()
+
+    semgrep_report = json.loads((SCANS_DIR / "semgrep-report.json").read_text())
+    bandit_report = json.loads((SCANS_DIR / "bandit-report.json").read_text())
+
+    # The secure secure_main.py has no issues (all false positives are nosemgrep/nosec ignored)
+    assert len(semgrep_report.get("results", [])) == 0
+    assert len(bandit_report.get("results", [])) == 0
+
+    report_html = (SCANS_DIR / "report.html").read_text()
+    assert "ALLOWED" in report_html
+

@@ -38,5 +38,32 @@ def initialize_database():
         users
     )
 
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS waf_rules (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            pattern TEXT NOT NULL,
+            description TEXT NOT NULL,
+            enabled INTEGER NOT NULL DEFAULT 1
+        )
+    """)
+
+    cursor.execute("DELETE FROM waf_rules")
+
+    waf_rules = [
+        ("' OR '", "SQL Injection (OR operator bypass)", 1),
+        ("1=1", "SQL Injection (tautology bypass)", 1),
+        ("--", "SQL comment character block", 1),
+        ("cat /etc/passwd", "LFI/Command execution pattern 1", 1),
+        ("\\.\\./", "Directory Traversal pattern (../)", 1),
+        ("pickle\\.loads", "Python deserialization hijack detector", 1),
+        ("eval\\(", "Python dynamic expression injection detector", 1)
+    ]
+
+    cursor.executemany(
+        "INSERT INTO waf_rules (pattern, description, enabled) VALUES (?, ?, ?)",
+        waf_rules
+    )
+
     conn.commit()
     conn.close()
+

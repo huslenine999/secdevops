@@ -575,7 +575,7 @@
             <button id="langToggleBtn" class="btn-toggle">[ LANG: EN ]</button>
             <button id="themeToggleBtn" class="btn-toggle">[ CRT: DARK ]</button>
             <div class="timestamp">
-                <span data-i18n="compiled_on">> COMPILED_ON:</span> 2026-05-21 17:35:26
+                <span data-i18n="compiled_on">> COMPILED_ON:</span> 2026-05-21 20:31:52
             </div>
             <a href="/" class="btn-back" data-i18n="return_btn">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -588,14 +588,14 @@
 
     <div class="container">
         <!-- Decision Banner -->
-        <div class="decision-banner status-blocked reveal">
+        <div class="decision-banner  reveal">
             <div class="decision-content">
-                <h1 class="decision-title" id="decisionTitle" data-status="BLOCKED">
-                    DEPLOYMENT_BLOCKED
+                <h1 class="decision-title" id="decisionTitle" data-status="ALLOWED">
+                    DEPLOYMENT_PASSED
                 </h1>
                 <p class="decision-reason">
                     <span data-i18n="gate_status">> CRITICAL_GATE_STATUS:</span> 
-                    <span id="reasonText" data-raw-reason="Blocking security issues found by: Bandit">Blocking security issues found by: Bandit</span>
+                    <span id="reasonText" data-raw-reason="No blocking security issues found.">No blocking security issues found.</span>
                 </p>
             </div>
         </div>
@@ -603,7 +603,7 @@
         <!-- Metrics Row -->
         <div class="metrics-grid reveal">
             <div class="metric-card">
-                <div class="metric-value">3</div>
+                <div class="metric-value">4</div>
                 <div class="metric-label" data-i18n="metrics_modules">Security Modules Run</div>
             </div>
             <div class="metric-card">
@@ -616,7 +616,9 @@
                     
                         
                     
-                    17
+                        
+                    
+                    0
                 </div>
                 <div class="metric-label" data-i18n="metrics_vulns">Total Vulnerabilities</div>
             </div>
@@ -630,7 +632,9 @@
                     
                         
                     
-                    10
+                        
+                    
+                    0
                 </div>
                 <div class="metric-label" data-i18n="metrics_blocking">Blocking Issues</div>
             </div>
@@ -642,139 +646,32 @@
         
         <div class="tool-panel reveal">
             <div class="tool-header">
-                <div class="tool-name">Bandit</div>
-                <div class="tool-status status-fail" data-tool-status="FAIL">
-                    STATUS_FAIL
+                <div class="tool-name">Semgrep</div>
+                <div class="tool-status " data-tool-status="PASS">
+                    STATUS_PASS
                 </div>
             </div>
             <div class="findings-list">
                 
-                    
-                        <div class="finding-item severity-medium">
-                            <div class="finding-meta">
-                                
-                                <span class="severity-badge badge-medium" data-severity="MEDIUM">
-                                    MEDIUM
-                                </span>
-                                
-                                <span class="finding-title">
-                                    
-                                        Probable insecure usage of temp file/directory.
-                                    
-                                </span>
-                            </div>
-                            <div class="finding-desc" data-tool="Bandit">
-                                
-                                    <span data-i18n="defect_prefix">Defect ID:</span> B108 &bull; <span data-i18n="violation_text">Source Code Violation detected.</span>
-                                
-                            </div>
-                            <div class="finding-location">
-                                
-                                    <span data-i18n="target_file_label">> TARGET_FILE:</span> app/database.py &bull; <span data-i18n="line_ref_label">LINE_REF:</span> 6
-                                
-                            </div>
-                        </div>
-                    
-                        <div class="finding-item severity-medium">
-                            <div class="finding-meta">
-                                
-                                <span class="severity-badge badge-medium" data-severity="MEDIUM">
-                                    MEDIUM
-                                </span>
-                                
-                                <span class="finding-title">
-                                    
-                                        Probable insecure usage of temp file/directory.
-                                    
-                                </span>
-                            </div>
-                            <div class="finding-desc" data-tool="Bandit">
-                                
-                                    <span data-i18n="defect_prefix">Defect ID:</span> B108 &bull; <span data-i18n="violation_text">Source Code Violation detected.</span>
-                                
-                            </div>
-                            <div class="finding-location">
-                                
-                                    <span data-i18n="target_file_label">> TARGET_FILE:</span> app/main.py &bull; <span data-i18n="line_ref_label">LINE_REF:</span> 64
-                                
-                            </div>
-                        </div>
-                    
-                        <div class="finding-item severity-medium">
-                            <div class="finding-meta">
-                                
-                                <span class="severity-badge badge-medium" data-severity="MEDIUM">
-                                    MEDIUM
-                                </span>
-                                
-                                <span class="finding-title">
-                                    
-                                        Probable insecure usage of temp file/directory.
-                                    
-                                </span>
-                            </div>
-                            <div class="finding-desc" data-tool="Bandit">
-                                
-                                    <span data-i18n="defect_prefix">Defect ID:</span> B108 &bull; <span data-i18n="violation_text">Source Code Violation detected.</span>
-                                
-                            </div>
-                            <div class="finding-location">
-                                
-                                    <span data-i18n="target_file_label">> TARGET_FILE:</span> app/main.py &bull; <span data-i18n="line_ref_label">LINE_REF:</span> 65
-                                
-                            </div>
-                        </div>
-                    
-                        <div class="finding-item severity-medium">
-                            <div class="finding-meta">
-                                
-                                <span class="severity-badge badge-medium" data-severity="MEDIUM">
-                                    MEDIUM
-                                </span>
-                                
-                                <span class="finding-title">
-                                    
-                                        Possible SQL injection vector through string-based query construction.
-                                    
-                                </span>
-                            </div>
-                            <div class="finding-desc" data-tool="Bandit">
-                                
-                                    <span data-i18n="defect_prefix">Defect ID:</span> B608 &bull; <span data-i18n="violation_text">Source Code Violation detected.</span>
-                                
-                            </div>
-                            <div class="finding-location">
-                                
-                                    <span data-i18n="target_file_label">> TARGET_FILE:</span> app/main.py &bull; <span data-i18n="line_ref_label">LINE_REF:</span> 153
-                                
-                            </div>
-                        </div>
-                    
-                        <div class="finding-item severity-high">
-                            <div class="finding-meta">
-                                
-                                <span class="severity-badge badge-high" data-severity="HIGH">
-                                    HIGH
-                                </span>
-                                
-                                <span class="finding-title">
-                                    
-                                        subprocess call with shell=True identified, security issue.
-                                    
-                                </span>
-                            </div>
-                            <div class="finding-desc" data-tool="Bandit">
-                                
-                                    <span data-i18n="defect_prefix">Defect ID:</span> B602 &bull; <span data-i18n="violation_text">Source Code Violation detected.</span>
-                                
-                            </div>
-                            <div class="finding-location">
-                                
-                                    <span data-i18n="target_file_label">> TARGET_FILE:</span> app/main.py &bull; <span data-i18n="line_ref_label">LINE_REF:</span> 177
-                                
-                            </div>
-                        </div>
-                    
+                    <div style="color: var(--text-muted); font-size: 0.9rem; font-style: italic;" data-i18n="no_issues">
+                        No issues detected by this scanner daemon.
+                    </div>
+                
+            </div>
+        </div>
+        
+        <div class="tool-panel reveal">
+            <div class="tool-header">
+                <div class="tool-name">Bandit</div>
+                <div class="tool-status " data-tool-status="PASS">
+                    STATUS_PASS
+                </div>
+            </div>
+            <div class="findings-list">
+                
+                    <div style="color: var(--text-muted); font-size: 0.9rem; font-style: italic;" data-i18n="no_issues">
+                        No issues detected by this scanner daemon.
+                    </div>
                 
             </div>
         </div>
@@ -956,7 +853,7 @@
                 passed: "DEPLOYMENT_PASSED",
                 
                 // Reasons mapping
-                reason_blocked: "Blocking security issues found by: Bandit",
+                reason_blocked: "Blocking security issues found by: Semgrep",
                 reason_passed: "All scans passed. System safe for production.",
 
                 // Finding labels
@@ -998,7 +895,7 @@
                 passed: "배포_승인됨",
                 
                 // Reasons mapping
-                reason_blocked: "차단 보안 결함 발견됨: Bandit",
+                reason_blocked: "차단 보안 결함 발견됨: Semgrep",
                 reason_passed: "모든 보안 검사 통과. 안전하게 배포 가능합니다.",
 
                 // Finding labels
@@ -1058,7 +955,7 @@
             const reasonEl = document.getElementById('reasonText');
             if (reasonEl) {
                 const rawReason = reasonEl.getAttribute('data-raw-reason');
-                if (rawReason.includes('Bandit')) {
+                if (rawReason.includes('Bandit') || rawReason.includes('Semgrep')) {
                     reasonEl.innerText = i18n[lang]['reason_blocked'];
                 } else if (rawReason.toLowerCase().includes('safe') || rawReason.toLowerCase().includes('pass')) {
                     reasonEl.innerText = i18n[lang]['reason_passed'];

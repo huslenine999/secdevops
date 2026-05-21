@@ -20,16 +20,62 @@ app = Flask(__name__)
 # Global state for the WAF toggle (demo only)
 WAF_ENABLED = False
 
-# Default dynamic WAF Rules (mutable in memory)
-WAF_RULES = [
-    {"pattern": "' OR '", "description": "SQL Injection (OR operator bypass)", "enabled": True},
-    {"pattern": "1=1", "description": "SQL Injection (tautology bypass)", "enabled": True},
-    {"pattern": "--", "description": "SQL comment character block", "enabled": True},
-    {"pattern": "cat /etc/passwd", "description": "LFI/Command execution pattern 1", "enabled": True},
-    {"pattern": "\\.\\./", "description": "Directory Traversal pattern (../)", "enabled": True},
-    {"pattern": "pickle\\.loads", "description": "Python deserialization hijack detector", "enabled": True},
-    {"pattern": "eval\\(", "description": "Python dynamic expression injection detector", "enabled": True}
-]
+
+def load_waf_rules_from_db():
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT pattern, description, enabled FROM waf_rules")
+        rows = cursor.fetchall()
+        rules = []
+        for row in rows:
+            rules.append({
+                "pattern": row[0],
+                "description": row[1],
+                "enabled": bool(row[2])
+            })
+        return rules
+    except sqlite3.OperationalError:
+        return [
+            {"pattern": "' OR '", "description": "SQL Injection (OR operator bypass)", "enabled": True},
+            {"pattern": "1=1", "description": "SQL Injection (tautology bypass)", "enabled": True},
+            {"pattern": "--", "description": "SQL comment character block", "enabled": True},
+            {"pattern": "cat /etc/passwd", "description": "LFI/Command execution pattern 1", "enabled": True},
+            {"pattern": "\\.\\./", "description": "Directory Traversal pattern (../)", "enabled": True},
+            {"pattern": "pickle\\.loads", "description": "Python deserialization hijack detector", "enabled": True},
+            {"pattern": "eval\\(", "description": "Python dynamic expression injection detector", "enabled": True}
+        ]
+    finally:
+        conn.close()
+
+
+def save_waf_rules_to_db(rules):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    try:
+        cursor.execute("DELETE FROM waf_rules")
+        for r in rules:
+            cursor.execute(
+                "INSERT INTO waf_rules (pattern, description, enabled) VALUES (?, ?, ?)",
+                (r["pattern"], r["description"], 1 if r["enabled"] else 0)
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def extract_json_values(data):
+    if isinstance(data, dict):
+        parts = []
+        for k, v in data.items():
+            parts.append(str(k))
+            parts.append(extract_json_values(v))
+        return " ".join(parts)
+    elif isinstance(data, list):
+        return " ".join(extract_json_values(item) for item in data)
+    else:
+        return str(data)
+
 
 @app.before_request
 def waf_middleware():
@@ -37,7 +83,7 @@ def waf_middleware():
     Simulated Web Application Firewall (WAF).
     Blocks suspicious patterns if enabled.
     """
-    global WAF_ENABLED, WAF_RULES
+    global WAF_ENABLED
     # Bypass WAF checks for WAF management, scanning, and dossier export routes
     if request.path in ["/toggle-waf", "/get-waf-rules", "/save-waf-rules", "/run-scan", "/export-dossier"]:
         return
@@ -45,10 +91,23 @@ def waf_middleware():
     if not WAF_ENABLED:
         return
 
-    # Check query params, form body, and raw data
-    payload = str(request.args) + str(request.form) + str(request.data)
+    # Check query params, form body, JSON, and raw data
+    payload_parts = [str(request.args), str(request.form)]
     
-    for rule in WAF_RULES:
+    json_data = request.get_json(silent=True)
+    if json_data:
+        payload_parts.append(extract_json_values(json_data))
+        
+    if request.data:
+        try:
+            payload_parts.append(request.data.decode('utf-8', errors='ignore'))
+        except Exception:
+            payload_parts.append(str(request.data))
+
+    payload = " ".join(payload_parts)
+    
+    rules = load_waf_rules_from_db()
+    for rule in rules:
         if not rule.get("enabled", True):
             continue
         pattern = rule.get("pattern", "")
@@ -81,13 +140,13 @@ def toggle_waf():
 
 @app.route("/get-waf-rules", methods=["GET"])
 def get_waf_rules():
-    global WAF_RULES, WAF_ENABLED
-    return jsonify({"status": "success", "rules": WAF_RULES, "waf_enabled": WAF_ENABLED})
+    global WAF_ENABLED
+    rules = load_waf_rules_from_db()
+    return jsonify({"status": "success", "rules": rules, "waf_enabled": WAF_ENABLED})
 
 
 @app.route("/save-waf-rules", methods=["POST"])
 def save_waf_rules():
-    global WAF_RULES
     try:
         data = request.json
         rules = data.get("rules", [])
@@ -99,7 +158,7 @@ def save_waf_rules():
                     "description": str(r.get("description", "")),
                     "enabled": bool(r.get("enabled", True))
                 })
-        WAF_RULES = new_rules
+        save_waf_rules_to_db(new_rules)
         return jsonify({"status": "success", "message": "WAF rules updated successfully."})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 400
@@ -165,12 +224,9 @@ def run_scan():
     temp_dir = None
 
     try:
-        # Determine the python executable and tool paths.
-        # Use current sys.executable to ensure we stay in the same venv.
+        # Determine the python executable.
+        # Use current sys.executable to ensure we stay in the same environment.
         python_bin = sys.executable
-        semgrep_bin = Path(python_bin).parent / "semgrep"
-        if not semgrep_bin.exists():
-            semgrep_bin = Path("semgrep")
         
         if uploaded_file and uploaded_file.filename:
             is_custom_scan = True
@@ -180,10 +236,7 @@ def run_scan():
             temp_dir.mkdir(exist_ok=True, parents=True)
             temp_filepath = temp_dir / filename
             uploaded_file.save(str(temp_filepath))
-            
-            # Run Semgrep (SAST) on the custom file specifically
-            semgrep_cmd = [str(semgrep_bin), "scan", "--config=auto", "--json", "-o", str(SCANS_DIR / "semgrep-report.json"), str(temp_filepath)]
-            subprocess.run(semgrep_cmd, cwd=PROJECT_ROOT, check=False)
+            target_path = str(temp_filepath)
             
             # Write clean/empty mock results to safety-report.json and trivy-report.json
             with open(SCANS_DIR / "safety-report.json", "w") as f:
@@ -191,9 +244,17 @@ def run_scan():
             with open(SCANS_DIR / "trivy-report.json", "w") as f:
                 json.dump({"Results": []}, f)
         else:
-            # Run Semgrep (SAST) on default app directory
-            semgrep_cmd = [str(semgrep_bin), "scan", "--config=auto", "--json", "-o", str(SCANS_DIR / "semgrep-report.json"), "app"]
-            subprocess.run(semgrep_cmd, cwd=PROJECT_ROOT, check=False)
+            # Read target from request
+            target_name = "vulnerable"
+            if request.is_json:
+                target_name = request.json.get("target", "vulnerable")
+            else:
+                target_name = request.form.get("target", "vulnerable")
+                
+            if target_name == "secure":
+                target_path = str(BASE_DIR / "secure_main.py")
+            else:
+                target_path = str(BASE_DIR / "main.py")
             
             # Run Safety (SCA) - using 'check' which works with requirements.txt
             safety_cmd = [python_bin, "-m", "safety", "check", "-r", "requirements.txt", "--save-json", str(SCANS_DIR / "safety-report.json")]
@@ -204,6 +265,37 @@ def run_scan():
             if not trivy_path.exists():
                 with open(trivy_path, "w") as f:
                     json.dump({"Results": []}, f)
+
+        # Run Semgrep on target_path specifically
+        semgrep_cmd = [
+            python_bin,
+            "-c",
+            "from semgrep.main import main; main()",
+            "scan",
+            "--config=auto",
+            "--json",
+            "-o",
+            str(SCANS_DIR / "semgrep-report.json"),
+            target_path
+        ]
+        subprocess.run(semgrep_cmd, cwd=PROJECT_ROOT, check=False)
+
+        # Run Bandit on target_path if it is a Python file
+        if target_path.endswith(".py"):
+            bandit_cmd = [
+                python_bin,
+                "-m",
+                "bandit",
+                target_path,
+                "-f",
+                "json",
+                "-o",
+                str(SCANS_DIR / "bandit-report.json")
+            ]
+            subprocess.run(bandit_cmd, cwd=PROJECT_ROOT, check=False)
+        else:
+            with open(SCANS_DIR / "bandit-report.json", "w") as f:
+                json.dump({"results": []}, f)
         
         # Run the policy engine
         engine_path = PROJECT_ROOT / "policy_engine.py"
@@ -387,6 +479,7 @@ def export_dossier():
             return None
 
     semgrep_report = load_json(SCANS_DIR / "semgrep-report.json")
+    bandit_report = load_json(SCANS_DIR / "bandit-report.json")
     safety_report = load_json(SCANS_DIR / "safety-report.json")
     trivy_report = load_json(SCANS_DIR / "trivy-report.json")
 
@@ -404,6 +497,21 @@ def export_dossier():
             if raw_sev in {"ERROR", "WARNING"}:
                 semgrep_blocking += 1
         semgrep_status = "FAIL" if semgrep_blocking > 0 else "PASS"
+
+    # Determine status & counts for Bandit
+    if not (SCANS_DIR / "bandit-report.json").exists():
+        bandit_status = "MISSING"
+        bandit_total = 0
+        bandit_blocking = 0
+    else:
+        bandit_results = bandit_report.get("results", []) if bandit_report else []
+        bandit_total = len(bandit_results)
+        bandit_blocking = 0
+        for r in bandit_results:
+            raw_sev = r.get("issue_severity", "").upper()
+            if raw_sev in {"MEDIUM", "HIGH"}:
+                bandit_blocking += 1
+        bandit_status = "FAIL" if bandit_blocking > 0 else "PASS"
 
     # Determine status & counts for Safety
     if not (SCANS_DIR / "safety-report.json").exists():
@@ -437,7 +545,7 @@ def export_dossier():
     # Final overall decision
     failed_tools = []
     missing_tools = []
-    for tool, status in [("Semgrep", semgrep_status), ("Safety", safety_status), ("Trivy", trivy_status)]:
+    for tool, status in [("Semgrep", semgrep_status), ("Bandit", bandit_status), ("Safety", safety_status), ("Trivy", trivy_status)]:
         if status == "FAIL":
             failed_tools.append(tool)
         elif status == "MISSING":
@@ -474,6 +582,23 @@ def export_dossier():
             semgrep_findings += "  ------------------------------------------------------------------\n"
     else:
         semgrep_findings = "  No issues detected.\n"
+
+    # Format Bandit findings
+    bandit_findings = ""
+    if bandit_report and bandit_report.get("results"):
+        for issue in bandit_report.get("results", [])[:5]:
+            bandit_findings += f"  - ID: {issue.get('test_id')} | Severity: {issue.get('issue_severity')} | Confidence: {issue.get('issue_confidence')}\n"
+            bandit_findings += f"    Location: {issue.get('filename')}:{issue.get('line_number')}\n"
+            bandit_findings += f"    Details: {issue.get('issue_text')}\n"
+            code = issue.get('code', '')
+            if code:
+                code_lines = code.strip().split('\n')
+                bandit_findings += f"    Source:\n"
+                for cl in code_lines[:3]:
+                    bandit_findings += f"      >> {cl}\n"
+            bandit_findings += "  ------------------------------------------------------------------\n"
+    else:
+        bandit_findings = "  No issues detected.\n"
 
     # Format Safety findings
     safety_findings = ""
@@ -549,7 +674,16 @@ Blocking Issues: {semgrep_blocking}
 FINDINGS (Top 5):
 {semgrep_findings}
 
-[2] SOFTWARE COMPOSITION ANALYSIS (SCA) - SAFETY
+[2] PYTHON SECURITY LINTER - BANDIT
+--------------------------------------------------------------------------------
+Status: {bandit_status}
+Total Issues Detected: {bandit_total}
+Blocking Issues: {bandit_blocking}
+
+FINDINGS (Top 5):
+{bandit_findings}
+
+[3] SOFTWARE COMPOSITION ANALYSIS (SCA) - SAFETY
 --------------------------------------------------------------------------------
 Status: {safety_status}
 Total Issues Detected: {safety_total}
@@ -558,7 +692,7 @@ Blocking Issues: {safety_blocking}
 FINDINGS (Top 5):
 {safety_findings}
 
-[3] CONTAINER IMAGE SCANNING - TRIVY
+[4] CONTAINER IMAGE SCANNING - TRIVY
 --------------------------------------------------------------------------------
 Status: {trivy_status}
 Total Issues Detected: {trivy_total}

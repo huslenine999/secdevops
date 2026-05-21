@@ -12,6 +12,7 @@ SCAN_DIR = Path(os.environ.get("SCANS_DIR", "scans"))
 TEMPLATE_PATH = Path("app/templates/report_template.html")
 
 SEMGREP_REPORT = SCAN_DIR / "semgrep-report.json"
+BANDIT_REPORT = SCAN_DIR / "bandit-report.json"
 SAFETY_REPORT = SCAN_DIR / "safety-report.json"
 TRIVY_REPORT = SCAN_DIR / "trivy-report.json"
 
@@ -19,6 +20,7 @@ HTML_REPORT = SCAN_DIR / "report.html"
 MD_REPORT = SCAN_DIR / "report.md"
 
 FAIL_ON_SEMGREP_SEVERITIES = {"MEDIUM", "HIGH"}
+FAIL_ON_BANDIT_SEVERITIES = {"MEDIUM", "HIGH"}
 FAIL_ON_SAFETY = True
 FAIL_ON_TRIVY_SEVERITIES = {"MEDIUM", "HIGH", "CRITICAL"}
 
@@ -79,6 +81,44 @@ def analyze_semgrep(report: Dict[str, Any]) -> Dict[str, Any]:
         "status": "FAIL" if blocking_issues else "PASS",
         "examples": (blocking_issues if blocking_issues else issues)[:5],
     }
+
+
+def analyze_bandit(report: Dict[str, Any]) -> Dict[str, Any]:
+    if not report:
+        return {
+            "tool": "Bandit",
+            "total_issues": 0,
+            "blocking_issues": 0,
+            "status": "MISSING",
+            "examples": [],
+        }
+
+    results = report.get("results", []) if report else []
+    issues = []
+    
+    for r in results:
+        issues.append({
+            "severity": r.get("issue_severity", "LOW").upper(),
+            "test_id": r.get("test_id"),
+            "filename": r.get("filename"),
+            "line_number": r.get("line_number"),
+            "issue_text": r.get("issue_text"),
+        })
+
+    blocking_issues = [
+        issue for issue in issues
+        if issue["severity"] in FAIL_ON_BANDIT_SEVERITIES
+    ]
+
+    return {
+        "tool": "Bandit",
+        "total_issues": len(issues),
+        "blocking_issues": len(blocking_issues),
+        "status": "FAIL" if blocking_issues else "PASS",
+        "examples": (blocking_issues if blocking_issues else issues)[:5],
+    }
+
+
 
 
 def analyze_safety(report: Any) -> Dict[str, Any]:
@@ -215,11 +255,13 @@ def main() -> int:
     print("=== Aegis Policy Engine ===")
 
     semgrep_report = load_json(SEMGREP_REPORT)
+    bandit_report = load_json(BANDIT_REPORT)
     safety_report = load_json(SAFETY_REPORT)
     trivy_report = load_json(TRIVY_REPORT)
 
     results = [
         analyze_semgrep(semgrep_report),
+        analyze_bandit(bandit_report),
         analyze_safety(safety_report),
         analyze_trivy(trivy_report),
     ]
