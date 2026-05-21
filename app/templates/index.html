@@ -547,6 +547,136 @@
             opacity: 1;
             transform: translateY(0);
         }
+
+        /* Mobile and Tablet Responsiveness Updates */
+        @media (max-width: 850px) {
+            h1 {
+                font-size: 2.5rem;
+            }
+            h2 {
+                font-size: 1.8rem;
+            }
+            .hero {
+                padding: 2rem 1.5rem;
+            }
+            .hero p {
+                font-size: 1rem;
+                margin-bottom: 1.5rem;
+            }
+            .terminal-body {
+                grid-template-columns: 1fr;
+                gap: 1.25rem;
+                padding: 1.25rem;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .navbar {
+                flex-direction: column;
+                padding: 1rem;
+                gap: 0.75rem;
+                text-align: center;
+            }
+            .navbar-brand {
+                font-size: 1.5rem;
+                letter-spacing: 1px;
+                white-space: normal;
+                word-break: break-word;
+            }
+            .navbar-controls {
+                width: 100%;
+                justify-content: center;
+                gap: 0.5rem !important;
+            }
+            .navbar-controls .btn {
+                padding: 0.25rem 0.5rem;
+                font-size: 0.8rem;
+            }
+            .terminal-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.75rem;
+                padding: 0.75rem 1rem;
+            }
+            .waf-switch-container {
+                width: 100%;
+                justify-content: space-between;
+                flex-wrap: wrap;
+                gap: 0.5rem;
+            }
+            .status-banner {
+                flex-direction: column;
+                align-items: stretch;
+                text-align: center;
+                gap: 1.25rem;
+                padding: 1.25rem;
+            }
+            .status-banner .badge {
+                align-self: center;
+            }
+            .status-banner .card-title {
+                font-size: 1.4rem !important;
+            }
+        }
+
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 2.0rem;
+            }
+            .container {
+                padding: 1rem 0.75rem;
+            }
+            .hero-buttons {
+                flex-direction: column;
+                width: 100%;
+                gap: 1rem !important;
+                margin-top: 1.5rem !important;
+            }
+            .hero-buttons .btn, .hero-buttons a {
+                width: 100%;
+                box-sizing: border-box;
+            }
+            .status-grid {
+                grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+                gap: 1rem;
+            }
+            .card {
+                padding: 1rem;
+            }
+            .card-title {
+                font-size: 1.3rem;
+            }
+        }
+
+        /* Responsive utilities for controls and lists */
+        .navbar-controls {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .hero-buttons {
+            margin-top: 2.5rem;
+            display: flex;
+            gap: 1.5rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .endpoint-item {
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            justify-content: space-between;
+        }
+        .endpoint-item .link {
+            flex: 1 1 auto;
+            word-break: break-all;
+            min-width: 0;
+        }
+        .endpoint-item .badge {
+            flex-shrink: 0;
+        }
     </style>
 </head>
 <body class="crt-glow">
@@ -556,7 +686,7 @@
         <div class="navbar-brand" data-i18n="brand">
             [&nbsp;AEGIS_SECURE_CONSOLE_v2.0&nbsp;]
         </div>
-        <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
+        <div class="navbar-controls">
             <button id="langToggleBtn" class="btn btn-secondary mono" style="padding: 0.35rem 0.75rem; font-size: 0.85rem;">[ LANG: EN ]</button>
             <button id="themeToggleBtn" class="btn btn-secondary mono" style="padding: 0.35rem 0.75rem; font-size: 0.85rem;">[ CRT: DARK ]</button>
             <a href="/health" class="link mono" style="color: var(--primary); font-size: 0.9rem;">> TTY_HEALTH_DAEMON</a>
@@ -568,7 +698,7 @@
         <div class="terminal-panel hero reveal">
             <h1 data-i18n="title">SECURITY CONTROL CENTER</h1>
             <p data-i18n="subtitle">TACTICAL SYSTEM MONITORING AND THREAT INTELLIGENCE GATEWAY. DETECTING STATIC CODE DEFECTS AND SIMULATING NETWORK ANOMALIES IN THE TARGET DEVSECOPS PIPELINE.</p>
-            <div style="margin-top: 2.5rem; display: flex; gap: 1.5rem; justify-content: center; flex-wrap: wrap;">
+            <div class="hero-buttons">
                 <a href="/report" class="btn" data-i18n="compile_report">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
                     COMPILE_SECURITY_REPORT
