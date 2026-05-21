@@ -11,14 +11,14 @@ from jinja2 import Template
 SCAN_DIR = Path(os.environ.get("SCANS_DIR", "scans"))
 TEMPLATE_PATH = Path("app/templates/report_template.html")
 
-BANDIT_REPORT = SCAN_DIR / "bandit-report.json"
+SEMGREP_REPORT = SCAN_DIR / "semgrep-report.json"
 SAFETY_REPORT = SCAN_DIR / "safety-report.json"
 TRIVY_REPORT = SCAN_DIR / "trivy-report.json"
 
 HTML_REPORT = SCAN_DIR / "report.html"
 MD_REPORT = SCAN_DIR / "report.md"
 
-FAIL_ON_BANDIT_SEVERITIES = {"MEDIUM", "HIGH"}
+FAIL_ON_SEMGREP_SEVERITIES = {"MEDIUM", "HIGH"}
 FAIL_ON_SAFETY = True
 FAIL_ON_TRIVY_SEVERITIES = {"MEDIUM", "HIGH", "CRITICAL"}
 
@@ -35,38 +35,49 @@ def load_json(path: Path) -> Any:
         return None
 
 
-def analyze_bandit(report: Dict[str, Any]) -> Dict[str, Any]:
+def analyze_semgrep(report: Dict[str, Any]) -> Dict[str, Any]:
     if not report:
         return {
-            "tool": "Bandit",
+            "tool": "Semgrep",
             "total_issues": 0,
             "blocking_issues": 0,
             "status": "MISSING",
             "examples": [],
         }
 
-    issues = report.get("results", []) if report else []
+    results = report.get("results", []) if report else []
+    issues = []
+    
+    for r in results:
+        extra = r.get("extra", {})
+        raw_sev = extra.get("severity", "").upper()
+        # Map Semgrep severity (ERROR/WARNING/INFO) to HIGH/MEDIUM/LOW
+        if raw_sev == "ERROR":
+            severity = "HIGH"
+        elif raw_sev == "WARNING":
+            severity = "MEDIUM"
+        else:
+            severity = "LOW"
+            
+        issues.append({
+            "severity": severity,
+            "test_id": r.get("check_id"),
+            "filename": r.get("path"),
+            "line_number": r.get("start", {}).get("line"),
+            "issue_text": extra.get("message"),
+        })
 
     blocking_issues = [
         issue for issue in issues
-        if issue.get("issue_severity", "").upper() in FAIL_ON_BANDIT_SEVERITIES
+        if issue["severity"] in FAIL_ON_SEMGREP_SEVERITIES
     ]
 
     return {
-        "tool": "Bandit",
+        "tool": "Semgrep",
         "total_issues": len(issues),
         "blocking_issues": len(blocking_issues),
         "status": "FAIL" if blocking_issues else "PASS",
-        "examples": [
-            {
-                "severity": issue.get("issue_severity"),
-                "test_id": issue.get("test_id"),
-                "filename": issue.get("filename"),
-                "line_number": issue.get("line_number"),
-                "issue_text": issue.get("issue_text"),
-            }
-            for issue in (blocking_issues if blocking_issues else issues)[:5]
-        ],
+        "examples": (blocking_issues if blocking_issues else issues)[:5],
     }
 
 
@@ -203,12 +214,12 @@ def print_result(result: Dict[str, Any]) -> None:
 def main() -> int:
     print("=== Aegis Policy Engine ===")
 
-    bandit_report = load_json(BANDIT_REPORT)
+    semgrep_report = load_json(SEMGREP_REPORT)
     safety_report = load_json(SAFETY_REPORT)
     trivy_report = load_json(TRIVY_REPORT)
 
     results = [
-        analyze_bandit(bandit_report),
+        analyze_semgrep(semgrep_report),
         analyze_safety(safety_report),
         analyze_trivy(trivy_report),
     ]

@@ -1,20 +1,28 @@
 import json
 from pathlib import Path
-from policy_engine import analyze_bandit, analyze_safety, analyze_trivy
+from policy_engine import analyze_semgrep, analyze_safety, analyze_trivy
 
-def test_analyze_bandit_pass():
+def test_analyze_semgrep_pass():
     report = {"results": []}
-    result = analyze_bandit(report)
+    result = analyze_semgrep(report)
     assert result["status"] == "PASS"
     assert result["total_issues"] == 0
 
-def test_analyze_bandit_fail():
+def test_analyze_semgrep_fail():
     report = {
         "results": [
-            {"issue_severity": "HIGH", "issue_text": "Hardcoded password", "test_id": "B105", "filename": "main.py", "line_number": 10}
+            {
+                "check_id": "rules.hardcoded-password",
+                "path": "main.py",
+                "start": {"line": 10},
+                "extra": {
+                    "severity": "ERROR",
+                    "message": "Hardcoded password"
+                }
+            }
         ]
     }
-    result = analyze_bandit(report)
+    result = analyze_semgrep(report)
     assert result["status"] == "FAIL"
     assert result["blocking_issues"] == 1
 

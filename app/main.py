@@ -168,6 +168,9 @@ def run_scan():
         # Determine the python executable and tool paths.
         # Use current sys.executable to ensure we stay in the same venv.
         python_bin = sys.executable
+        semgrep_bin = Path(python_bin).parent / "semgrep"
+        if not semgrep_bin.exists():
+            semgrep_bin = Path("semgrep")
         
         if uploaded_file and uploaded_file.filename:
             is_custom_scan = True
@@ -178,9 +181,9 @@ def run_scan():
             temp_filepath = temp_dir / filename
             uploaded_file.save(str(temp_filepath))
             
-            # Run Bandit (SAST) on the custom file specifically
-            bandit_cmd = [python_bin, "-m", "bandit", "-f", "json", "-o", str(SCANS_DIR / "bandit-report.json"), str(temp_filepath)]
-            subprocess.run(bandit_cmd, cwd=PROJECT_ROOT, check=False)
+            # Run Semgrep (SAST) on the custom file specifically
+            semgrep_cmd = [str(semgrep_bin), "scan", "--config=auto", "--json", "-o", str(SCANS_DIR / "semgrep-report.json"), str(temp_filepath)]
+            subprocess.run(semgrep_cmd, cwd=PROJECT_ROOT, check=False)
             
             # Write clean/empty mock results to safety-report.json and trivy-report.json
             with open(SCANS_DIR / "safety-report.json", "w") as f:
@@ -188,9 +191,9 @@ def run_scan():
             with open(SCANS_DIR / "trivy-report.json", "w") as f:
                 json.dump({"Results": []}, f)
         else:
-            # Run Bandit (SAST) on default app directory
-            bandit_cmd = [python_bin, "-m", "bandit", "-r", "app", "-f", "json", "-o", str(SCANS_DIR / "bandit-report.json")]
-            subprocess.run(bandit_cmd, cwd=PROJECT_ROOT, check=False)
+            # Run Semgrep (SAST) on default app directory
+            semgrep_cmd = [str(semgrep_bin), "scan", "--config=auto", "--json", "-o", str(SCANS_DIR / "semgrep-report.json"), "app"]
+            subprocess.run(semgrep_cmd, cwd=PROJECT_ROOT, check=False)
             
             # Run Safety (SCA) - using 'check' which works with requirements.txt
             safety_cmd = [python_bin, "-m", "safety", "check", "-r", "requirements.txt", "--save-json", str(SCANS_DIR / "safety-report.json")]
@@ -383,20 +386,24 @@ def export_dossier():
         except Exception:
             return None
 
-    bandit_report = load_json(SCANS_DIR / "bandit-report.json")
+    semgrep_report = load_json(SCANS_DIR / "semgrep-report.json")
     safety_report = load_json(SCANS_DIR / "safety-report.json")
     trivy_report = load_json(SCANS_DIR / "trivy-report.json")
 
-    # Determine status & counts for Bandit
-    if not (SCANS_DIR / "bandit-report.json").exists():
-        bandit_status = "MISSING"
-        bandit_total = 0
-        bandit_blocking = 0
+    # Determine status & counts for Semgrep
+    if not (SCANS_DIR / "semgrep-report.json").exists():
+        semgrep_status = "MISSING"
+        semgrep_total = 0
+        semgrep_blocking = 0
     else:
-        bandit_results = bandit_report.get("results", []) if bandit_report else []
-        bandit_total = len(bandit_results)
-        bandit_blocking = len([i for i in bandit_results if i.get("issue_severity", "").upper() in {"MEDIUM", "HIGH"}])
-        bandit_status = "FAIL" if bandit_blocking > 0 else "PASS"
+        semgrep_results = semgrep_report.get("results", []) if semgrep_report else []
+        semgrep_total = len(semgrep_results)
+        semgrep_blocking = 0
+        for r in semgrep_results:
+            raw_sev = r.get("extra", {}).get("severity", "").upper()
+            if raw_sev in {"ERROR", "WARNING"}:
+                semgrep_blocking += 1
+        semgrep_status = "FAIL" if semgrep_blocking > 0 else "PASS"
 
     # Determine status & counts for Safety
     if not (SCANS_DIR / "safety-report.json").exists():
@@ -430,7 +437,7 @@ def export_dossier():
     # Final overall decision
     failed_tools = []
     missing_tools = []
-    for tool, status in [("Bandit", bandit_status), ("Safety", safety_status), ("Trivy", trivy_status)]:
+    for tool, status in [("Semgrep", semgrep_status), ("Safety", safety_status), ("Trivy", trivy_status)]:
         if status == "FAIL":
             failed_tools.append(tool)
         elif status == "MISSING":
@@ -450,21 +457,23 @@ def export_dossier():
 
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    # Format Bandit findings
-    bandit_findings = ""
-    if bandit_report and bandit_report.get("results"):
-        for issue in bandit_report.get("results", [])[:5]:
-            bandit_findings += f"  - ID: {issue.get('test_id')} | Severity: {issue.get('issue_severity')} | Confidence: {issue.get('issue_confidence')}\n"
-            bandit_findings += f"    Location: {issue.get('filename')}:{issue.get('line_number')}\n"
-            bandit_findings += f"    Details: {issue.get('issue_text')}\n"
-            code_lines = issue.get('code', '').strip().split('\n')
-            if code_lines:
-                bandit_findings += f"    Source:\n"
+    # Format Semgrep findings
+    semgrep_findings = ""
+    if semgrep_report and semgrep_report.get("results"):
+        for issue in semgrep_report.get("results", [])[:5]:
+            extra = issue.get("extra", {})
+            semgrep_findings += f"  - ID: {issue.get('check_id')} | Severity: {extra.get('severity')} | Confidence: {extra.get('metadata', {}).get('confidence', 'MEDIUM')}\n"
+            semgrep_findings += f"    Location: {issue.get('path')}:{issue.get('start', {}).get('line')}\n"
+            semgrep_findings += f"    Details: {extra.get('message')}\n"
+            code = extra.get('lines', '')
+            if code:
+                code_lines = code.strip().split('\n')
+                semgrep_findings += f"    Source:\n"
                 for cl in code_lines[:3]:
-                    bandit_findings += f"      >> {cl}\n"
-            bandit_findings += "  ------------------------------------------------------------------\n"
+                    semgrep_findings += f"      >> {cl}\n"
+            semgrep_findings += "  ------------------------------------------------------------------\n"
     else:
-        bandit_findings = "  No issues detected.\n"
+        semgrep_findings = "  No issues detected.\n"
 
     # Format Safety findings
     safety_findings = ""
@@ -531,14 +540,14 @@ GATE DECISION: {gate_decision}
 REASON: {reason}
 ================================================================================
 
-[1] STATIC APPLICATION SECURITY TESTING (SAST) - BANDIT
+[1] STATIC APPLICATION SECURITY TESTING (SAST) - SEMGREP
 --------------------------------------------------------------------------------
-Status: {bandit_status}
-Total Issues Detected: {bandit_total}
-Blocking Issues: {bandit_blocking}
+Status: {semgrep_status}
+Total Issues Detected: {semgrep_total}
+Blocking Issues: {semgrep_blocking}
 
 FINDINGS (Top 5):
-{bandit_findings}
+{semgrep_findings}
 
 [2] SOFTWARE COMPOSITION ANALYSIS (SCA) - SAFETY
 --------------------------------------------------------------------------------
